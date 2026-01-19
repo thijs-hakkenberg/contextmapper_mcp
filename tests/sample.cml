@@ -1,0 +1,157 @@
+// Sample E-Commerce Domain Model
+ContextMap ECommerceContextMap {
+	type = AS_IS
+	contains CustomerManagement, OrderManagement, Inventory, Shipping
+
+	// Relationships
+	CustomerManagement [U,OHS,PL] -> [D,ACL] OrderManagement
+	OrderManagement [U] -> [D,ACL] Shipping
+	OrderManagement [U] -> [D,CF] Inventory
+	Inventory Partnership Shipping
+}
+
+BoundedContext CustomerManagement {
+	domainVisionStatement = "Manages customer data and authentication"
+	responsibilities = "Customer registration", "Profile management", "Authentication"
+	implementationTechnology = "TypeScript"
+
+	Aggregate Customer {
+		Entity Customer {
+			aggregateRoot
+			key String customerId
+			String email
+			String firstName
+			String lastName
+			nullable String phone
+		}
+
+		ValueObject Address {
+			String street
+			String city
+			String zipCode
+			String country
+		}
+
+		DomainEvent CustomerRegistered {
+			String customerId
+			String email
+			Date registeredAt
+		}
+
+		Command RegisterCustomer {
+			String email
+			String firstName
+			String lastName
+		}
+	}
+}
+
+BoundedContext OrderManagement {
+	domainVisionStatement = "Handles order processing and lifecycle"
+	responsibilities = "Order creation", "Order status tracking", "Payment processing"
+	implementationTechnology = "Java"
+
+	Aggregate Order {
+		Entity Order {
+			aggregateRoot
+			key String orderId
+			String customerId
+			String status
+			Date createdAt
+		}
+
+		Entity OrderLine {
+			String productId
+			Int quantity
+			Decimal price
+		}
+
+		ValueObject Money {
+			Decimal amount
+			String currency
+		}
+
+		DomainEvent OrderPlaced {
+			String orderId
+			String customerId
+			Date placedAt
+		}
+
+		DomainEvent OrderShipped {
+			String orderId
+			Date shippedAt
+		}
+
+		Command PlaceOrder {
+			String customerId
+			String productIds
+		}
+
+		Service OrderService {
+			def Order placeOrder(String customerId, String productIds)
+			def void cancelOrder(String orderId)
+		}
+	}
+}
+
+BoundedContext Inventory {
+	domainVisionStatement = "Manages product inventory and stock levels"
+	implementationTechnology = "Go"
+
+	Aggregate Product {
+		Entity Product {
+			aggregateRoot
+			key String productId
+			String name
+			String description
+			Int stockLevel
+		}
+
+		ValueObject ProductCategory {
+			String categoryId
+			String name
+		}
+
+		DomainEvent StockDepleted {
+			String productId
+			Int remainingStock
+		}
+
+		Command ReserveStock {
+			String productId
+			Int quantity
+		}
+	}
+}
+
+BoundedContext Shipping {
+	domainVisionStatement = "Handles shipment tracking and delivery"
+	implementationTechnology = "Python"
+
+	Aggregate Shipment {
+		Entity Shipment {
+			aggregateRoot
+			key String shipmentId
+			String orderId
+			String trackingNumber
+			String status
+		}
+
+		ValueObject DeliveryAddress {
+			String street
+			String city
+			String zipCode
+			String country
+		}
+
+		DomainEvent ShipmentCreated {
+			String shipmentId
+			String orderId
+		}
+
+		DomainEvent ShipmentDelivered {
+			String shipmentId
+			Date deliveredAt
+		}
+	}
+}
