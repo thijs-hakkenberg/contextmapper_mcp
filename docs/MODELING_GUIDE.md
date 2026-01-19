@@ -7,9 +7,10 @@ This guide covers best practices for creating Domain-Driven Design models using 
 1. [Quick Start](#quick-start)
 2. [Model Structure](#model-structure)
 3. [Creating Identifiers (IDs)](#creating-identifiers-ids)
-4. [Complete Workflow Example](#complete-workflow-example)
-5. [Reserved Keywords](#reserved-keywords)
-6. [Tool Reference](#tool-reference)
+4. [Unique Naming Across Bounded Contexts](#unique-naming-across-bounded-contexts)
+5. [Complete Workflow Example](#complete-workflow-example)
+6. [Reserved Keywords](#reserved-keywords)
+7. [Tool Reference](#tool-reference)
 
 ---
 
@@ -142,6 +143,125 @@ cml_add_identifier({
      ]
    })
    ```
+
+---
+
+## Unique Naming Across Bounded Contexts
+
+### The Ambiguous Type Reference Problem
+
+**CRITICAL**: Domain object names (Value Objects, Entities, Domain Events, Commands) must be **unique across all bounded contexts** in your model. If you use the same name in multiple contexts, CML tools will report an error:
+
+```
+The reference to the type 'AgentId' is ambiguous, since there exist
+multiple domain objects with that name in your model.
+```
+
+### ❌ Bad Example - Duplicate Names
+
+```cml
+// This will cause ambiguous type reference errors!
+
+BoundedContext A2AServer {
+    Aggregate A2AProtocol {
+        ValueObject AgentId {      // ❌ "AgentId" defined here
+            String value
+        }
+    }
+}
+
+BoundedContext DatabricksPlatform {
+    Aggregate DatabricksAgent {
+        ValueObject AgentId {      // ❌ Same name! Ambiguous reference
+            String value
+        }
+    }
+}
+
+BoundedContext ServiceNowPlatform {
+    Aggregate SNOWAgent {
+        ValueObject AgentId {      // ❌ Same name again!
+            String value
+        }
+    }
+}
+```
+
+### ✅ Good Example - Unique Prefixed Names
+
+Use context-specific prefixes to make names unique:
+
+```cml
+BoundedContext A2AServer {
+    Aggregate A2AProtocol {
+        ValueObject A2AAgentId {           // ✅ Unique: "A2A" prefix
+            String value
+        }
+        ValueObject A2ATaskId {
+            String value
+        }
+    }
+}
+
+BoundedContext DatabricksPlatform {
+    Aggregate DatabricksAgent {
+        ValueObject DatabricksAgentId {    // ✅ Unique: "Databricks" prefix
+            String value
+        }
+        ValueObject MLflowTraceId {
+            String value
+        }
+    }
+}
+
+BoundedContext ServiceNowPlatform {
+    Aggregate SNOWAgent {
+        ValueObject SNOWAgentId {          // ✅ Unique: "SNOW" prefix
+            String value
+        }
+    }
+}
+```
+
+### Naming Convention Guidelines
+
+| Context | Prefix | Example IDs |
+|---------|--------|-------------|
+| A2AServer | `A2A` | `A2AAgentId`, `A2ATaskId`, `A2ASkillId` |
+| DatabricksPlatform | `Databricks` or `MLflow` | `DatabricksAgentId`, `MLflowTraceId` |
+| ServiceNowPlatform | `SNOW` | `SNOWAgentId` |
+| SalesforceAgentforce | `SF` | `SFAgentId`, `SFOrgId` |
+| CopilotStudioPlatform | `Copilot` | `CopilotBotId`, `CopilotTenantId` |
+
+### Validation
+
+The MCP server **automatically validates** for duplicate domain object names. When you call `cml_validate_model`, it will report errors like:
+
+```json
+{
+  "valid": false,
+  "errors": [
+    {
+      "type": "error",
+      "message": "Ambiguous domain object name 'AgentId' defined in multiple locations: A2AServer.A2AProtocol, DatabricksPlatform.DatabricksAgent. Use unique prefixed names (e.g., 'A2AAgentId', 'DatabricksAgentId') to avoid ambiguous type references."
+    }
+  ]
+}
+```
+
+### When Creating IDs with `cml_add_identifier`
+
+Always use context-specific prefixes:
+
+```typescript
+// ❌ Bad - will cause duplicates across contexts
+cml_add_identifier({ contextName: "A2AServer", aggregateName: "A2AProtocol", name: "AgentId" })
+cml_add_identifier({ contextName: "DatabricksPlatform", aggregateName: "DatabricksAgent", name: "AgentId" })
+
+// ✅ Good - unique prefixed names
+cml_add_identifier({ contextName: "A2AServer", aggregateName: "A2AProtocol", name: "A2AAgentId" })
+cml_add_identifier({ contextName: "DatabricksPlatform", aggregateName: "DatabricksAgent", name: "DatabricksAgentId" })
+```
 
 ---
 

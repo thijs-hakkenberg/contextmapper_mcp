@@ -39,10 +39,78 @@ export function validateModel(model: CMLModel): ValidationResult {
     bcNames.add(bc.name);
   }
 
+  // Check for duplicate domain object names across bounded contexts
+  // This prevents ambiguous type references (e.g., multiple "AgentId" definitions)
+  validateNoDuplicateDomainObjectNames(model, errors);
+
   return {
     valid: errors.filter(e => e.type === 'error').length === 0,
     errors,
   };
+}
+
+/**
+ * Validates that domain object names (Value Objects, Entities, Domain Events, Commands)
+ * are unique across all bounded contexts to prevent ambiguous type references.
+ *
+ * Example of what this prevents:
+ * - A2AServer has "AgentId" Value Object
+ * - DatabricksPlatform has "AgentId" Value Object
+ * - This causes "The reference to the type 'AgentId' is ambiguous" error in CML tools
+ *
+ * Solution: Use unique prefixed names like "A2AAgentId" and "DatabricksAgentId"
+ */
+function validateNoDuplicateDomainObjectNames(model: CMLModel, errors: ValidationError[]): void {
+  // Track all domain object names and their locations
+  const domainObjectLocations = new Map<string, string[]>();
+
+  for (const bc of model.boundedContexts) {
+    const allAggregates = [
+      ...bc.aggregates,
+      ...bc.modules.flatMap(m => m.aggregates),
+    ];
+
+    for (const agg of allAggregates) {
+      // Check Value Objects (most common source of duplicates like "AgentId")
+      for (const vo of agg.valueObjects) {
+        const locations = domainObjectLocations.get(vo.name) || [];
+        locations.push(`${bc.name}.${agg.name}`);
+        domainObjectLocations.set(vo.name, locations);
+      }
+
+      // Check Entities
+      for (const entity of agg.entities) {
+        const locations = domainObjectLocations.get(entity.name) || [];
+        locations.push(`${bc.name}.${agg.name}`);
+        domainObjectLocations.set(entity.name, locations);
+      }
+
+      // Check Domain Events
+      for (const event of agg.domainEvents) {
+        const locations = domainObjectLocations.get(event.name) || [];
+        locations.push(`${bc.name}.${agg.name}`);
+        domainObjectLocations.set(event.name, locations);
+      }
+
+      // Check Commands
+      for (const cmd of agg.commands) {
+        const locations = domainObjectLocations.get(cmd.name) || [];
+        locations.push(`${bc.name}.${agg.name}`);
+        domainObjectLocations.set(cmd.name, locations);
+      }
+    }
+  }
+
+  // Report errors for any duplicate names
+  for (const [name, locations] of domainObjectLocations.entries()) {
+    if (locations.length > 1) {
+      errors.push({
+        type: 'error',
+        message: `Ambiguous domain object name '${name}' defined in multiple locations: ${locations.join(', ')}. Use unique prefixed names (e.g., 'A2A${name}', 'Databricks${name}') to avoid ambiguous type references.`,
+        location: { element: name },
+      });
+    }
+  }
 }
 
 function validateContextMap(model: CMLModel, errors: ValidationError[]): void {
