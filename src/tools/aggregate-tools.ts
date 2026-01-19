@@ -297,6 +297,75 @@ export function addValueObject(params: AddValueObjectParams): AddValueObjectResu
   };
 }
 
+// Tool: cml_add_identifier
+// Creates an ID Value Object following DDD best practices
+export interface AddIdentifierParams {
+  contextName: string;
+  aggregateName: string;
+  name: string; // e.g., "ExecutionId", "TaskId", "ModelId"
+}
+
+export interface AddIdentifierResult {
+  success: boolean;
+  identifier?: {
+    id: string;
+    name: string;
+    type: string; // The type to use in attribute declarations
+  };
+  error?: string;
+}
+
+export function addIdentifier(params: AddIdentifierParams): AddIdentifierResult {
+  const result = findAggregate(params.contextName, params.aggregateName);
+  if (!result) {
+    return { success: false, error: `Aggregate '${params.aggregateName}' not found in context '${params.contextName}'` };
+  }
+
+  const { aggregate } = result;
+
+  // Ensure name ends with "Id" for consistency
+  let name = sanitizeIdentifier(params.name);
+  if (!name.endsWith('Id')) {
+    name = name + 'Id';
+  }
+
+  // Capitalize first letter
+  name = name.charAt(0).toUpperCase() + name.slice(1);
+
+  // Check if Value Object already exists
+  const existing = aggregate.valueObjects.find(vo => vo.name === name);
+  if (existing) {
+    return {
+      success: true,
+      identifier: {
+        id: existing.id,
+        name: existing.name,
+        type: `- ${existing.name}`, // Reference syntax
+      },
+    };
+  }
+
+  // Create the ID Value Object with a single 'value' attribute
+  const vo: ValueObject = {
+    id: uuidv4(),
+    name,
+    attributes: [
+      { name: 'value', type: 'String' },
+    ],
+  };
+
+  aggregate.valueObjects.push(vo);
+
+  return {
+    success: true,
+    identifier: {
+      id: vo.id,
+      name: vo.name,
+      type: `- ${vo.name}`, // Reference syntax for CML
+    },
+  };
+}
+
 // Tool: cml_add_domain_event
 export interface AddDomainEventParams {
   contextName: string;

@@ -24,7 +24,7 @@ import type {
 
 // CML reserved keywords that need escaping with ^ when used as identifiers
 const RESERVED_KEYWORDS = new Set([
-  'aggregate', 'aggregateRoot', 'application', 'assert', 'async',
+  'abstract', 'action', 'aggregate', 'aggregateRoot', 'application', 'assert', 'async',
   'boundedContext', 'by',
   'case', 'catch', 'class', 'command', 'contains', 'context',
   'def', 'default', 'description', 'do', 'domain', 'domainEvent', 'domainVisionStatement',
@@ -35,7 +35,7 @@ const RESERVED_KEYWORDS = new Set([
   'if', 'implements', 'implementationTechnology', 'import', 'in', 'instanceof',
   'key', 'knowledgeLevel',
   'let', 'list',
-  'map', 'module',
+  'map', 'module', 'name',
   'new', 'null', 'nullable',
   'of', 'operation', 'optional',
   'package', 'param', 'plateau', 'private', 'protected', 'public',

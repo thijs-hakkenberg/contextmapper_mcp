@@ -41,6 +41,7 @@ import {
   deleteAggregate,
   addEntity,
   addValueObject,
+  addIdentifier,
   addDomainEvent,
   addCommand,
   addService,
@@ -345,6 +346,19 @@ const tools: Tool[] = [
           },
           description: 'Value object attributes',
         },
+      },
+      required: ['contextName', 'aggregateName', 'name'],
+    },
+  },
+  {
+    name: 'cml_add_identifier',
+    description: 'Create an ID Value Object following DDD best practices. Use this instead of primitive String IDs to properly model identifiers as Value Objects.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        contextName: { type: 'string', description: 'Name of the bounded context' },
+        aggregateName: { type: 'string', description: 'Name of the aggregate' },
+        name: { type: 'string', description: 'Name of the identifier (e.g., "ExecutionId", "TaskId"). Will be normalized to end with "Id"' },
       },
       required: ['contextName', 'aggregateName', 'name'],
     },
@@ -712,6 +726,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         break;
       case 'cml_add_value_object':
         result = addValueObject(args as any);
+        break;
+      case 'cml_add_identifier':
+        result = addIdentifier(args as any);
         break;
       case 'cml_add_domain_event':
         result = addDomainEvent(args as any);
