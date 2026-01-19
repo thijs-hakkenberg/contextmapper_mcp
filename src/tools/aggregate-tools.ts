@@ -38,6 +38,72 @@ function findAggregate(contextName: string, aggregateName: string): { aggregate:
   return null;
 }
 
+/**
+ * Helper to check if a domain object name already exists in another bounded context.
+ * This prevents ambiguous type references (e.g., multiple "AgentId" definitions).
+ *
+ * @param name - The proposed name for the new domain object
+ * @param currentContext - The context where the object is being created (excluded from check)
+ * @returns Object with isDuplicate flag and location if found, or null if unique
+ */
+function checkForDuplicateDomainObjectName(
+  name: string,
+  currentContext: string
+): { isDuplicate: boolean; existingLocation?: string; suggestion?: string } {
+  const model = getCurrentModel();
+  if (!model) return { isDuplicate: false };
+
+  for (const bc of model.boundedContexts) {
+    // Skip the current context - duplicates within same context are handled elsewhere
+    if (bc.name === currentContext) continue;
+
+    const allAggregates = [
+      ...bc.aggregates,
+      ...bc.modules.flatMap(m => m.aggregates),
+    ];
+
+    for (const agg of allAggregates) {
+      // Check Value Objects
+      if (agg.valueObjects.some(vo => vo.name === name)) {
+        return {
+          isDuplicate: true,
+          existingLocation: `${bc.name}.${agg.name}`,
+          suggestion: `Use a unique prefixed name like '${currentContext.replace(/Platform$|Context$|Server$/g, '')}${name}' instead`,
+        };
+      }
+
+      // Check Entities
+      if (agg.entities.some(e => e.name === name)) {
+        return {
+          isDuplicate: true,
+          existingLocation: `${bc.name}.${agg.name}`,
+          suggestion: `Use a unique prefixed name like '${currentContext.replace(/Platform$|Context$|Server$/g, '')}${name}' instead`,
+        };
+      }
+
+      // Check Domain Events
+      if (agg.domainEvents.some(e => e.name === name)) {
+        return {
+          isDuplicate: true,
+          existingLocation: `${bc.name}.${agg.name}`,
+          suggestion: `Use a unique prefixed name like '${currentContext.replace(/Platform$|Context$|Server$/g, '')}${name}' instead`,
+        };
+      }
+
+      // Check Commands
+      if (agg.commands.some(c => c.name === name)) {
+        return {
+          isDuplicate: true,
+          existingLocation: `${bc.name}.${agg.name}`,
+          suggestion: `Use a unique prefixed name like '${currentContext.replace(/Platform$|Context$|Server$/g, '')}${name}' instead`,
+        };
+      }
+    }
+  }
+
+  return { isDuplicate: false };
+}
+
 // Tool: cml_create_aggregate
 export interface CreateAggregateParams {
   contextName: string;
@@ -211,9 +277,18 @@ export function addEntity(params: AddEntityParams): AddEntityResult {
   const { aggregate } = result;
   const name = sanitizeIdentifier(params.name);
 
-  // Check for duplicate
+  // Check for duplicate within aggregate
   if (aggregate.entities.some(e => e.name === name)) {
     return { success: false, error: `Entity '${name}' already exists in aggregate '${params.aggregateName}'` };
+  }
+
+  // Check for duplicate across other bounded contexts (prevents ambiguous type references)
+  const duplicateCheck = checkForDuplicateDomainObjectName(name, params.contextName);
+  if (duplicateCheck.isDuplicate) {
+    return {
+      success: false,
+      error: `Entity name '${name}' already exists in ${duplicateCheck.existingLocation}. ${duplicateCheck.suggestion}`,
+    };
   }
 
   const entity: Entity = {
@@ -272,9 +347,18 @@ export function addValueObject(params: AddValueObjectParams): AddValueObjectResu
   const { aggregate } = result;
   const name = sanitizeIdentifier(params.name);
 
-  // Check for duplicate
+  // Check for duplicate within aggregate
   if (aggregate.valueObjects.some(vo => vo.name === name)) {
     return { success: false, error: `Value object '${name}' already exists in aggregate '${params.aggregateName}'` };
+  }
+
+  // Check for duplicate across other bounded contexts (prevents ambiguous type references)
+  const duplicateCheck = checkForDuplicateDomainObjectName(name, params.contextName);
+  if (duplicateCheck.isDuplicate) {
+    return {
+      success: false,
+      error: `Value object name '${name}' already exists in ${duplicateCheck.existingLocation}. ${duplicateCheck.suggestion}`,
+    };
   }
 
   const vo: ValueObject = {
@@ -332,7 +416,7 @@ export function addIdentifier(params: AddIdentifierParams): AddIdentifierResult 
   // Capitalize first letter
   name = name.charAt(0).toUpperCase() + name.slice(1);
 
-  // Check if Value Object already exists
+  // Check if Value Object already exists in this aggregate (return existing)
   const existing = aggregate.valueObjects.find(vo => vo.name === name);
   if (existing) {
     return {
@@ -342,6 +426,15 @@ export function addIdentifier(params: AddIdentifierParams): AddIdentifierResult 
         name: existing.name,
         type: `- ${existing.name}`, // Reference syntax
       },
+    };
+  }
+
+  // Check for duplicate across other bounded contexts (prevents ambiguous type references)
+  const duplicateCheck = checkForDuplicateDomainObjectName(name, params.contextName);
+  if (duplicateCheck.isDuplicate) {
+    return {
+      success: false,
+      error: `Identifier name '${name}' already exists in ${duplicateCheck.existingLocation}. ${duplicateCheck.suggestion}`,
     };
   }
 
@@ -392,9 +485,18 @@ export function addDomainEvent(params: AddDomainEventParams): AddDomainEventResu
   const { aggregate } = result;
   const name = sanitizeIdentifier(params.name);
 
-  // Check for duplicate
+  // Check for duplicate within aggregate
   if (aggregate.domainEvents.some(e => e.name === name)) {
     return { success: false, error: `Domain event '${name}' already exists in aggregate '${params.aggregateName}'` };
+  }
+
+  // Check for duplicate across other bounded contexts (prevents ambiguous type references)
+  const duplicateCheck = checkForDuplicateDomainObjectName(name, params.contextName);
+  if (duplicateCheck.isDuplicate) {
+    return {
+      success: false,
+      error: `Domain event name '${name}' already exists in ${duplicateCheck.existingLocation}. ${duplicateCheck.suggestion}`,
+    };
   }
 
   const event: DomainEvent = {
@@ -443,9 +545,18 @@ export function addCommand(params: AddCommandParams): AddCommandResult {
   const { aggregate } = result;
   const name = sanitizeIdentifier(params.name);
 
-  // Check for duplicate
+  // Check for duplicate within aggregate
   if (aggregate.commands.some(c => c.name === name)) {
     return { success: false, error: `Command '${name}' already exists in aggregate '${params.aggregateName}'` };
+  }
+
+  // Check for duplicate across other bounded contexts (prevents ambiguous type references)
+  const duplicateCheck = checkForDuplicateDomainObjectName(name, params.contextName);
+  if (duplicateCheck.isDuplicate) {
+    return {
+      success: false,
+      error: `Command name '${name}' already exists in ${duplicateCheck.existingLocation}. ${duplicateCheck.suggestion}`,
+    };
   }
 
   const cmd: Command = {
