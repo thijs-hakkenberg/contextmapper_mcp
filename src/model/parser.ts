@@ -33,58 +33,61 @@ const WhiteSpace = createToken({ name: 'WhiteSpace', pattern: /\s+/, group: Lexe
 const LineComment = createToken({ name: 'LineComment', pattern: /\/\/[^\n\r]*/, group: Lexer.SKIPPED });
 const BlockComment = createToken({ name: 'BlockComment', pattern: /\/\*[\s\S]*?\*\//, group: Lexer.SKIPPED });
 
-// Keywords
-const ContextMap = createToken({ name: 'ContextMap', pattern: /ContextMap/ });
-const BoundedContext = createToken({ name: 'BoundedContext', pattern: /BoundedContext/ });
-const Aggregate = createToken({ name: 'Aggregate', pattern: /Aggregate/ });
-const Entity = createToken({ name: 'Entity', pattern: /Entity/ });
-const ValueObject = createToken({ name: 'ValueObject', pattern: /ValueObject/ });
-const DomainEvent = createToken({ name: 'DomainEvent', pattern: /DomainEvent/ });
-const Command = createToken({ name: 'Command', pattern: /Command/ });
-const Service = createToken({ name: 'Service', pattern: /Service/ });
-const Module = createToken({ name: 'Module', pattern: /Module/ });
+// Identifier must be defined first for longer_alt references
+const Identifier = createToken({ name: 'Identifier', pattern: /[a-zA-Z_][a-zA-Z0-9_]*/ });
+
+// Keywords - use longer_alt so identifiers like "ServiceNowPlatform" aren't split
+const ContextMap = createToken({ name: 'ContextMap', pattern: /ContextMap/, longer_alt: Identifier });
+const BoundedContext = createToken({ name: 'BoundedContext', pattern: /BoundedContext/, longer_alt: Identifier });
+const Aggregate = createToken({ name: 'Aggregate', pattern: /Aggregate/, longer_alt: Identifier });
+const Entity = createToken({ name: 'Entity', pattern: /Entity/, longer_alt: Identifier });
+const ValueObject = createToken({ name: 'ValueObject', pattern: /ValueObject/, longer_alt: Identifier });
+const DomainEvent = createToken({ name: 'DomainEvent', pattern: /DomainEvent/, longer_alt: Identifier });
+const Command = createToken({ name: 'Command', pattern: /Command/, longer_alt: Identifier });
+const Service = createToken({ name: 'Service', pattern: /Service/, longer_alt: Identifier });
+const Module = createToken({ name: 'Module', pattern: /Module/, longer_alt: Identifier });
 
 // Relationship keywords
-const Partnership = createToken({ name: 'Partnership', pattern: /Partnership/ });
-const SharedKernel = createToken({ name: 'SharedKernel', pattern: /SharedKernel/ });
+const Partnership = createToken({ name: 'Partnership', pattern: /Partnership/, longer_alt: Identifier });
+const SharedKernel = createToken({ name: 'SharedKernel', pattern: /SharedKernel/, longer_alt: Identifier });
 const CustomerSupplier = createToken({ name: 'CustomerSupplier', pattern: /Customer-Supplier/ });
 
 // Relationship patterns
-const UpstreamKw = createToken({ name: 'UpstreamKw', pattern: /[Uu]pstream/ });
-const DownstreamKw = createToken({ name: 'DownstreamKw', pattern: /[Dd]ownstream/ });
+const UpstreamKw = createToken({ name: 'UpstreamKw', pattern: /[Uu]pstream/, longer_alt: Identifier });
+const DownstreamKw = createToken({ name: 'DownstreamKw', pattern: /[Dd]ownstream/, longer_alt: Identifier });
 const UpstreamShort = createToken({ name: 'UpstreamShort', pattern: /U(?![a-zA-Z0-9_])/ });
 const DownstreamShort = createToken({ name: 'DownstreamShort', pattern: /D(?![a-zA-Z0-9_])/ });
-const OHS = createToken({ name: 'OHS', pattern: /OHS/ });
-const PL = createToken({ name: 'PL', pattern: /PL/ });
-const ACL = createToken({ name: 'ACL', pattern: /ACL/ });
-const CF = createToken({ name: 'CF', pattern: /CF/ });
+const OHS = createToken({ name: 'OHS', pattern: /OHS/, longer_alt: Identifier });
+const PL = createToken({ name: 'PL', pattern: /PL/, longer_alt: Identifier });
+const ACL = createToken({ name: 'ACL', pattern: /ACL/, longer_alt: Identifier });
+const CF = createToken({ name: 'CF', pattern: /CF/, longer_alt: Identifier });
 
 // Property keywords
-const Contains = createToken({ name: 'Contains', pattern: /contains/ });
-const Implements = createToken({ name: 'Implements', pattern: /implements/ });
-const Type = createToken({ name: 'Type', pattern: /type/ });
-const State = createToken({ name: 'State', pattern: /state/ });
-const DomainVisionStatement = createToken({ name: 'DomainVisionStatement', pattern: /domainVisionStatement/ });
-const Responsibilities = createToken({ name: 'Responsibilities', pattern: /responsibilities/ });
-const ImplementationTechnology = createToken({ name: 'ImplementationTechnology', pattern: /implementationTechnology/ });
-const KnowledgeLevel = createToken({ name: 'KnowledgeLevel', pattern: /knowledgeLevel/ });
-const AggregateRoot = createToken({ name: 'AggregateRoot', pattern: /aggregateRoot/ });
-const Def = createToken({ name: 'Def', pattern: /def/ });
-const Key = createToken({ name: 'Key', pattern: /key/ });
-const Nullable = createToken({ name: 'Nullable', pattern: /nullable/ });
-const ExposedAggregates = createToken({ name: 'ExposedAggregates', pattern: /exposedAggregates/ });
+const Contains = createToken({ name: 'Contains', pattern: /contains/, longer_alt: Identifier });
+const Implements = createToken({ name: 'Implements', pattern: /implements/, longer_alt: Identifier });
+const Type = createToken({ name: 'Type', pattern: /type/, longer_alt: Identifier });
+const State = createToken({ name: 'State', pattern: /state/, longer_alt: Identifier });
+const DomainVisionStatement = createToken({ name: 'DomainVisionStatement', pattern: /domainVisionStatement/, longer_alt: Identifier });
+const Responsibilities = createToken({ name: 'Responsibilities', pattern: /responsibilities/, longer_alt: Identifier });
+const ImplementationTechnology = createToken({ name: 'ImplementationTechnology', pattern: /implementationTechnology/, longer_alt: Identifier });
+const KnowledgeLevel = createToken({ name: 'KnowledgeLevel', pattern: /knowledgeLevel/, longer_alt: Identifier });
+const AggregateRoot = createToken({ name: 'AggregateRoot', pattern: /aggregateRoot/, longer_alt: Identifier });
+const Def = createToken({ name: 'Def', pattern: /def/, longer_alt: Identifier });
+const Key = createToken({ name: 'Key', pattern: /key/, longer_alt: Identifier });
+const Nullable = createToken({ name: 'Nullable', pattern: /nullable/, longer_alt: Identifier });
+const ExposedAggregates = createToken({ name: 'ExposedAggregates', pattern: /exposedAggregates/, longer_alt: Identifier });
 
 // Collection types
-const ListType = createToken({ name: 'ListType', pattern: /List/ });
-const SetType = createToken({ name: 'SetType', pattern: /Set/ });
+const ListType = createToken({ name: 'ListType', pattern: /List/, longer_alt: Identifier });
+const SetType = createToken({ name: 'SetType', pattern: /Set/, longer_alt: Identifier });
 const LAngle = createToken({ name: 'LAngle', pattern: /</ });
 const RAngle = createToken({ name: 'RAngle', pattern: />/ });
 
 // State keywords
-const AsIs = createToken({ name: 'AsIs', pattern: /AS_IS/ });
-const ToBe = createToken({ name: 'ToBe', pattern: /TO_BE/ });
-const Meta = createToken({ name: 'Meta', pattern: /META/ });
-const Concrete = createToken({ name: 'Concrete', pattern: /CONCRETE/ });
+const AsIs = createToken({ name: 'AsIs', pattern: /AS_IS/, longer_alt: Identifier });
+const ToBe = createToken({ name: 'ToBe', pattern: /TO_BE/, longer_alt: Identifier });
+const Meta = createToken({ name: 'Meta', pattern: /META/, longer_alt: Identifier });
+const Concrete = createToken({ name: 'Concrete', pattern: /CONCRETE/, longer_alt: Identifier });
 
 // Symbols
 const LCurly = createToken({ name: 'LCurly', pattern: /{/ });
@@ -104,7 +107,7 @@ const DownstreamUpstreamArrow = createToken({ name: 'DownstreamUpstreamArrow', p
 
 // Literals
 const StringLiteral = createToken({ name: 'StringLiteral', pattern: /"[^"]*"/ });
-const Identifier = createToken({ name: 'Identifier', pattern: /[a-zA-Z_][a-zA-Z0-9_]*/ });
+// Note: Identifier is defined earlier for longer_alt references
 
 // All tokens in order (order matters for lexer)
 const allTokens = [
@@ -476,6 +479,18 @@ class CMLParserClass extends CstParser {
 
   // Attribute declaration: Type name key? nullable? ;?
   // Also supports: List<Type> name or Set<Type> name
+  // Attribute name - can be identifier or certain keywords used as names
+  private attributeName = this.RULE('attributeName', () => {
+    this.OR([
+      { ALT: () => this.CONSUME(Identifier) },
+      { ALT: () => this.CONSUME(Type) }, // 'type' is often used as attr name
+      { ALT: () => this.CONSUME(State) }, // 'state' is often used as attr name
+      { ALT: () => this.CONSUME(Key) }, // 'key' can be an attr name
+      { ALT: () => this.CONSUME(Service) }, // 'service' can be an attr name
+      { ALT: () => this.CONSUME(Module) }, // 'module' can be an attr name
+    ]);
+  });
+
   private attributeDecl = this.RULE('attributeDecl', () => {
     // Type (can be collection type like List<String>)
     this.OR([
@@ -492,10 +507,10 @@ class CMLParserClass extends CstParser {
       },
       { ALT: () => this.CONSUME2(Identifier) }, // simple type
     ]);
-    // Name
-    this.CONSUME3(Identifier);
+    // Name - can be identifier or keyword
+    this.SUBRULE(this.attributeName);
     // Optional modifiers (after name)
-    this.OPTION(() => this.CONSUME(Key));
+    this.OPTION(() => this.CONSUME2(Key));
     this.OPTION2(() => this.CONSUME(Nullable));
     // Optional semicolon
     this.OPTION3(() => this.CONSUME(Semicolon));
@@ -965,16 +980,32 @@ function visitAttribute(cst: CstNode): Attribute {
   let type: string;
   let name: string;
 
+  // Extract attribute name from attributeName subrule
+  const attrNameNode = getNode(children, 'attributeName');
+  if (attrNameNode) {
+    const nameChildren = attrNameNode.children;
+    // Try to get name from any of the possible tokens
+    const nameToken =
+      getToken(nameChildren, 'Identifier') ||
+      getToken(nameChildren, 'Type') ||
+      getToken(nameChildren, 'State') ||
+      getToken(nameChildren, 'Key') ||
+      getToken(nameChildren, 'Service') ||
+      getToken(nameChildren, 'Module');
+    name = nameToken?.image || 'unnamed';
+  } else {
+    // Fallback for old structure
+    name = identifiers[1]?.image || 'unnamed';
+  }
+
   // Check for collection types (List<Type> or Set<Type>)
   if (children['ListType'] || children['SetType']) {
     const collectionType = children['ListType'] ? 'List' : 'Set';
     const innerType = identifiers[0]?.image || 'Object';
     type = `${collectionType}<${innerType}>`;
-    name = identifiers[1]?.image || 'unnamed';
   } else {
     // Simple type: Type name
     type = identifiers[0]?.image || 'String';
-    name = identifiers[1]?.image || 'unnamed';
   }
 
   const attr: Attribute = { type, name };
