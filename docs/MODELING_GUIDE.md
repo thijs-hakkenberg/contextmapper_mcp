@@ -1,0 +1,529 @@
+# Context Mapper MCP Server - Modeling Guide
+
+This guide covers best practices for creating Domain-Driven Design models using the Context Mapper MCP Server.
+
+## Table of Contents
+
+1. [Quick Start](#quick-start)
+2. [Model Structure](#model-structure)
+3. [Creating Identifiers (IDs)](#creating-identifiers-ids)
+4. [Complete Workflow Example](#complete-workflow-example)
+5. [Reserved Keywords](#reserved-keywords)
+6. [Tool Reference](#tool-reference)
+
+---
+
+## Quick Start
+
+### Installation
+
+```bash
+# Add the MCP server to Claude Code
+claude mcp add context-mapper --scope user -- node /path/to/context_mapper_mcp/dist/index.js
+```
+
+### Basic Workflow
+
+1. Create a model: `cml_create_model`
+2. Create bounded contexts: `cml_create_bounded_context`
+3. Create aggregates: `cml_create_aggregate`
+4. Add domain elements: entities, value objects, events, commands
+5. Define relationships: `cml_create_relationship`
+6. Save the model: `cml_save_model`
+
+---
+
+## Model Structure
+
+A CML model follows this hierarchy:
+
+```
+Model
+├── ContextMap (optional)
+│   ├── state (AS_IS | TO_BE)
+│   ├── contains [BoundedContext names]
+│   └── relationships
+│       ├── Partnership
+│       ├── SharedKernel
+│       └── UpstreamDownstream (with OHS/PL/ACL/CF patterns)
+│
+└── BoundedContexts[]
+    ├── domainVisionStatement
+    ├── responsibilities[]
+    ├── implementationTechnology
+    └── Aggregates[]
+        ├── Entities[]
+        ├── ValueObjects[]
+        ├── DomainEvents[]
+        ├── Commands[]
+        └── Services[]
+```
+
+---
+
+## Creating Identifiers (IDs)
+
+### The Problem with Primitive IDs
+
+Using primitive `String` types for identifiers violates DDD best practices:
+
+```cml
+// ❌ Bad - IDE will warn: "primitive-id-detected"
+Entity Order {
+    aggregateRoot
+    String orderId key        // Warning!
+    String customerId         // Warning!
+}
+```
+
+### The Solution: ID Value Objects
+
+Create dedicated Value Objects for each identifier type:
+
+```cml
+// ✅ Good - Proper DDD modeling
+ValueObject OrderId {
+    String value
+}
+
+ValueObject CustomerId {
+    String value
+}
+
+Entity Order {
+    aggregateRoot
+    - OrderId orderId key     // Reference to Value Object
+    - CustomerId customerId   // Reference to Value Object
+}
+```
+
+### Using the `cml_add_identifier` Tool
+
+The MCP server provides a dedicated tool for creating ID Value Objects:
+
+```typescript
+// Creates a Value Object named "OrderId" with a single "value" attribute
+cml_add_identifier({
+  contextName: "OrderContext",
+  aggregateName: "OrderAggregate",
+  name: "OrderId"  // or just "Order" - will be normalized to "OrderId"
+})
+
+// Returns:
+{
+  success: true,
+  identifier: {
+    id: "uuid...",
+    name: "OrderId",
+    type: "- OrderId"  // Use this in attribute declarations
+  }
+}
+```
+
+### Recommended Workflow for Entities with IDs
+
+1. **First, create the ID Value Objects:**
+   ```
+   cml_add_identifier(contextName, aggregateName, "Order")
+   cml_add_identifier(contextName, aggregateName, "Customer")
+   ```
+
+2. **Then, create the entity referencing those IDs:**
+   ```
+   cml_add_entity({
+     contextName: "...",
+     aggregateName: "...",
+     name: "Order",
+     aggregateRoot: true,
+     attributes: [
+       { name: "orderId", type: "- OrderId", key: true },
+       { name: "customerId", type: "- CustomerId" },
+       { name: "totalAmount", type: "BigDecimal" }
+     ]
+   })
+   ```
+
+---
+
+## Complete Workflow Example
+
+Here's a complete example creating an Order Management bounded context:
+
+### Step 1: Create the Model
+
+```
+cml_create_model({ name: "ECommerceModel" })
+```
+
+### Step 2: Create Context Map
+
+```
+cml_create_context_map({ name: "ECommerceMap", state: "AS_IS" })
+```
+
+### Step 3: Create Bounded Context
+
+```
+cml_create_bounded_context({
+  name: "OrderManagement",
+  domainVisionStatement: "Handles order lifecycle from creation to fulfillment",
+  implementationTechnology: "Java, Spring Boot",
+  responsibilities: ["Order creation", "Order tracking", "Payment processing"]
+})
+```
+
+### Step 4: Create Aggregate
+
+```
+cml_create_aggregate({
+  contextName: "OrderManagement",
+  name: "OrderAggregate",
+  responsibilities: ["Order state management", "Order validation"]
+})
+```
+
+### Step 5: Create ID Value Objects
+
+```
+cml_add_identifier({
+  contextName: "OrderManagement",
+  aggregateName: "OrderAggregate",
+  name: "OrderId"
+})
+
+cml_add_identifier({
+  contextName: "OrderManagement",
+  aggregateName: "OrderAggregate",
+  name: "CustomerId"
+})
+
+cml_add_identifier({
+  contextName: "OrderManagement",
+  aggregateName: "OrderAggregate",
+  name: "ProductId"
+})
+```
+
+### Step 6: Create Entities
+
+```
+cml_add_entity({
+  contextName: "OrderManagement",
+  aggregateName: "OrderAggregate",
+  name: "Order",
+  aggregateRoot: true,
+  attributes: [
+    { name: "orderId", type: "- OrderId", key: true },
+    { name: "customerId", type: "- CustomerId" },
+    { name: "orderDate", type: "DateTime" },
+    { name: "status", type: "String" }
+  ]
+})
+
+cml_add_entity({
+  contextName: "OrderManagement",
+  aggregateName: "OrderAggregate",
+  name: "OrderLine",
+  attributes: [
+    { name: "lineId", type: "- OrderLineId", key: true },
+    { name: "productId", type: "- ProductId" },
+    { name: "quantity", type: "int" },
+    { name: "unitPrice", type: "BigDecimal" }
+  ]
+})
+```
+
+### Step 7: Create Value Objects
+
+```
+cml_add_value_object({
+  contextName: "OrderManagement",
+  aggregateName: "OrderAggregate",
+  name: "Address",
+  attributes: [
+    { name: "street", type: "String" },
+    { name: "city", type: "String" },
+    { name: "postalCode", type: "String" },
+    { name: "country", type: "String" }
+  ]
+})
+
+cml_add_value_object({
+  contextName: "OrderManagement",
+  aggregateName: "OrderAggregate",
+  name: "Money",
+  attributes: [
+    { name: "amount", type: "BigDecimal" },
+    { name: "currency", type: "String" }
+  ]
+})
+```
+
+### Step 8: Create Domain Events
+
+```
+cml_add_domain_event({
+  contextName: "OrderManagement",
+  aggregateName: "OrderAggregate",
+  name: "OrderPlaced",
+  attributes: [
+    { name: "orderId", type: "- OrderId" },
+    { name: "customerId", type: "- CustomerId" },
+    { name: "placedAt", type: "DateTime" }
+  ]
+})
+
+cml_add_domain_event({
+  contextName: "OrderManagement",
+  aggregateName: "OrderAggregate",
+  name: "OrderShipped",
+  attributes: [
+    { name: "orderId", type: "- OrderId" },
+    { name: "shippedAt", type: "DateTime" },
+    { name: "trackingNumber", type: "String" }
+  ]
+})
+```
+
+### Step 9: Create Commands
+
+```
+cml_add_command({
+  contextName: "OrderManagement",
+  aggregateName: "OrderAggregate",
+  name: "PlaceOrder",
+  attributes: [
+    { name: "customerId", type: "- CustomerId" },
+    { name: "items", type: "List<OrderLineRequest>" }
+  ]
+})
+
+cml_add_command({
+  contextName: "OrderManagement",
+  aggregateName: "OrderAggregate",
+  name: "CancelOrder",
+  attributes: [
+    { name: "orderId", type: "- OrderId" },
+    { name: "reason", type: "String" }
+  ]
+})
+```
+
+### Step 10: Save the Model
+
+```
+cml_save_model({ path: "/path/to/order-model.cml" })
+```
+
+### Resulting CML Output
+
+```cml
+ContextMap ECommerceMap {
+    state = AS_IS
+    contains OrderManagement
+}
+
+BoundedContext OrderManagement {
+    domainVisionStatement = "Handles order lifecycle from creation to fulfillment"
+    responsibilities = "Order creation", "Order tracking", "Payment processing"
+    implementationTechnology = "Java, Spring Boot"
+
+    Aggregate OrderAggregate {
+        responsibilities = "Order state management", "Order validation"
+
+        Entity Order {
+            aggregateRoot
+            - OrderId orderId key
+            - CustomerId customerId
+            DateTime orderDate
+            String status
+        }
+
+        Entity OrderLine {
+            - OrderLineId lineId key
+            - ProductId productId
+            int quantity
+            BigDecimal unitPrice
+        }
+
+        ValueObject OrderId {
+            String value
+        }
+
+        ValueObject CustomerId {
+            String value
+        }
+
+        ValueObject ProductId {
+            String value
+        }
+
+        ValueObject OrderLineId {
+            String value
+        }
+
+        ValueObject Address {
+            String street
+            String city
+            String postalCode
+            String country
+        }
+
+        ValueObject Money {
+            BigDecimal amount
+            String currency
+        }
+
+        DomainEvent OrderPlaced {
+            - OrderId orderId
+            - CustomerId customerId
+            DateTime placedAt
+        }
+
+        DomainEvent OrderShipped {
+            - OrderId orderId
+            DateTime shippedAt
+            String trackingNumber
+        }
+
+        Command PlaceOrder {
+            - CustomerId customerId
+            List<OrderLineRequest> items
+        }
+
+        Command CancelOrder {
+            - OrderId orderId
+            String reason
+        }
+    }
+}
+```
+
+---
+
+## Reserved Keywords
+
+The following keywords are automatically escaped with `^` when used as attribute names:
+
+| Keywords |
+|----------|
+| `abstract`, `action`, `aggregate`, `aggregateRoot`, `application`, `assert`, `async` |
+| `boundedContext`, `by` |
+| `case`, `catch`, `class`, `command`, `contains`, `context` |
+| `def`, `default`, `description`, `do`, `domain`, `domainEvent`, `domainVisionStatement` |
+| `else`, `entity`, `enum`, `event`, `exposedAggregates`, `extends` |
+| `false`, `final`, `finally`, `for`, `function` |
+| `gap`, `get` |
+| `hint`, `hook` |
+| `if`, `implements`, `implementationTechnology`, `import`, `in`, `instanceof` |
+| `key`, `knowledgeLevel` |
+| `let`, `list` |
+| `map`, `module`, `name` |
+| `new`, `null`, `nullable` |
+| `of`, `operation`, `optional` |
+| `package`, `param`, `plateau`, `private`, `protected`, `public` |
+| `ref`, `repository`, `required`, `responsibilities`, `return` |
+| `scaffold`, `service`, `set`, `state`, `static`, `subdomain`, `super`, `switch` |
+| `this`, `throw`, `trait`, `true`, `try`, `type` |
+| `url`, `use` |
+| `valueObject`, `var`, `version`, `void` |
+| `while`, `with` |
+
+Example:
+```cml
+// Input attribute name: "description"
+// Output in CML file: "String ^description"
+```
+
+---
+
+## Tool Reference
+
+### Model Management
+| Tool | Description |
+|------|-------------|
+| `cml_create_model` | Create a new empty CML model |
+| `cml_load_model` | Load a model from a .cml file |
+| `cml_save_model` | Save the current model to a file |
+| `cml_validate_model` | Validate the current model |
+| `cml_get_model_info` | Get information about the current model |
+
+### Context Map
+| Tool | Description |
+|------|-------------|
+| `cml_create_context_map` | Create a context map (AS_IS or TO_BE) |
+| `cml_create_relationship` | Create relationships (Partnership, SharedKernel, UpstreamDownstream) |
+| `cml_update_relationship` | Update an existing relationship |
+| `cml_delete_relationship` | Delete a relationship |
+
+### Bounded Contexts
+| Tool | Description |
+|------|-------------|
+| `cml_create_bounded_context` | Create a new bounded context |
+| `cml_update_bounded_context` | Update bounded context properties |
+| `cml_delete_bounded_context` | Delete a bounded context |
+| `cml_list_bounded_contexts` | List all bounded contexts |
+| `cml_get_bounded_context` | Get details of a specific context |
+
+### Aggregates
+| Tool | Description |
+|------|-------------|
+| `cml_create_aggregate` | Create a new aggregate in a context |
+| `cml_update_aggregate` | Update aggregate properties |
+| `cml_delete_aggregate` | Delete an aggregate |
+| `cml_list_aggregates` | List aggregates (optionally filtered by context) |
+| `cml_get_aggregate` | Get aggregate details including all elements |
+
+### Domain Elements
+| Tool | Description |
+|------|-------------|
+| `cml_add_entity` | Add an entity to an aggregate |
+| `cml_add_value_object` | Add a value object to an aggregate |
+| `cml_add_identifier` | Create an ID Value Object (DDD best practice) |
+| `cml_add_domain_event` | Add a domain event to an aggregate |
+| `cml_add_command` | Add a command to an aggregate |
+| `cml_add_service` | Add a domain service to an aggregate |
+
+### Delete Operations
+| Tool | Description |
+|------|-------------|
+| `cml_delete_entity` | Delete an entity |
+| `cml_delete_value_object` | Delete a value object |
+| `cml_delete_domain_event` | Delete a domain event |
+| `cml_delete_command` | Delete a command |
+| `cml_delete_service` | Delete a service |
+
+### Query & Search
+| Tool | Description |
+|------|-------------|
+| `cml_find_elements` | Search for elements by name pattern (regex) |
+| `cml_list_relationships` | List relationships (optionally filtered) |
+
+### Diagram Generation
+| Tool | Description |
+|------|-------------|
+| `cml_generate_context_map_diagram` | Generate PlantUML context map |
+| `cml_generate_aggregate_diagram` | Generate PlantUML class diagram for aggregate |
+| `cml_generate_full_diagram` | Generate complete PlantUML diagram |
+
+---
+
+## Tips & Best Practices
+
+1. **Always use ID Value Objects** - Use `cml_add_identifier` before creating entities that need IDs
+
+2. **Create IDs first** - Create all your ID Value Objects at the start of aggregate creation
+
+3. **Use reference syntax** - When referencing Value Objects in attributes, use `- TypeName` syntax
+
+4. **Meaningful names** - Use descriptive names that reflect the domain language
+
+5. **Validate often** - Use `cml_validate_model` to check for issues before saving
+
+6. **Context Map state** - Use `AS_IS` for current architecture, `TO_BE` for target architecture
+
+7. **Relationship patterns**:
+   - `OHS` (Open Host Service) - upstream exposes a well-defined API
+   - `PL` (Published Language) - shared language/schema between contexts
+   - `ACL` (Anti-Corruption Layer) - downstream translates/protects from upstream
+   - `CF` (Conformist) - downstream conforms to upstream model
