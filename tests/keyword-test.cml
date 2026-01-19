@@ -1,0 +1,16 @@
+BoundedContext TestContext {
+	domainVisionStatement = "Testing reserved keyword escaping"
+
+	Aggregate TestAggregate {
+
+		Entity TestEntity {
+			aggregateRoot
+			String id key
+			String ^description
+			String ^url
+			String ^state
+			String ^type
+			String normalAttribute
+		}
+	}
+}
