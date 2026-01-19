@@ -22,9 +22,42 @@ import type {
   UpstreamDownstreamRelationship,
 } from './types.js';
 
+// CML reserved keywords that need escaping with ^ when used as identifiers
+const RESERVED_KEYWORDS = new Set([
+  'aggregate', 'aggregateRoot', 'application', 'assert', 'async',
+  'boundedContext', 'by',
+  'case', 'catch', 'class', 'command', 'contains', 'context',
+  'def', 'default', 'description', 'do', 'domain', 'domainEvent', 'domainVisionStatement',
+  'else', 'entity', 'enum', 'event', 'exposedAggregates', 'extends',
+  'false', 'final', 'finally', 'for', 'function',
+  'gap', 'get',
+  'hint', 'hook',
+  'if', 'implements', 'implementationTechnology', 'import', 'in', 'instanceof',
+  'key', 'knowledgeLevel',
+  'let', 'list',
+  'map', 'module',
+  'new', 'null', 'nullable',
+  'of', 'operation', 'optional',
+  'package', 'param', 'plateau', 'private', 'protected', 'public',
+  'ref', 'repository', 'required', 'responsibilities', 'return',
+  'scaffold', 'service', 'set', 'state', 'static', 'subdomain', 'super', 'switch',
+  'this', 'throw', 'trait', 'true', 'try', 'type',
+  'url', 'use',
+  'valueObject', 'var', 'version', 'void',
+  'while', 'with',
+]);
+
 class CMLWriter {
   private indent = 0;
   private lines: string[] = [];
+
+  // Escape identifier if it's a reserved keyword
+  private escapeIdentifier(name: string): string {
+    if (RESERVED_KEYWORDS.has(name.toLowerCase())) {
+      return `^${name}`;
+    }
+    return name;
+  }
 
   private write(text: string): void {
     const indentation = '\t'.repeat(this.indent);
@@ -324,7 +357,9 @@ class CMLWriter {
 
   private writeAttribute(attr: Attribute): void {
     // CML format: Type name key? nullable?
-    let line = `${attr.type} ${attr.name}`;
+    // Escape attribute name if it's a reserved keyword
+    const escapedName = this.escapeIdentifier(attr.name);
+    let line = `${attr.type} ${escapedName}`;
     if (attr.key) {
       line += ' key';
     }
