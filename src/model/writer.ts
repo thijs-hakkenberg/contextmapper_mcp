@@ -72,7 +72,7 @@ class CMLWriter {
 
     // State
     if (contextMap.state) {
-      this.writeLine(`type = ${contextMap.state}`);
+      this.writeLine(`state = ${contextMap.state}`);
     }
 
     // Contains
@@ -323,14 +323,14 @@ class CMLWriter {
   }
 
   private writeAttribute(attr: Attribute): void {
-    let line = '';
+    // CML format: Type name key? nullable?
+    let line = `${attr.type} ${attr.name}`;
     if (attr.key) {
-      line += 'key ';
+      line += ' key';
     }
     if (attr.nullable) {
-      line += 'nullable ';
+      line += ' nullable';
     }
-    line += `${attr.type} ${attr.name}`;
     this.writeLine(line);
   }
 

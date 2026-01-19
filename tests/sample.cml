@@ -1,6 +1,6 @@
 // Sample E-Commerce Domain Model
 ContextMap ECommerceContextMap {
-	type = AS_IS
+	state = AS_IS
 	contains CustomerManagement, OrderManagement, Inventory, Shipping
 
 	// Relationships
@@ -18,11 +18,11 @@ BoundedContext CustomerManagement {
 	Aggregate Customer {
 		Entity Customer {
 			aggregateRoot
-			key String customerId
+			String customerId key
 			String email
 			String firstName
 			String lastName
-			nullable String phone
+			String phone nullable
 		}
 
 		ValueObject Address {
@@ -54,7 +54,7 @@ BoundedContext OrderManagement {
 	Aggregate Order {
 		Entity Order {
 			aggregateRoot
-			key String orderId
+			String orderId key
 			String customerId
 			String status
 			Date createdAt
@@ -62,7 +62,7 @@ BoundedContext OrderManagement {
 
 		Entity OrderLine {
 			String productId
-			Int quantity
+			int quantity
 			Decimal price
 		}
 
@@ -84,7 +84,7 @@ BoundedContext OrderManagement {
 
 		Command PlaceOrder {
 			String customerId
-			String productIds
+			List<String> productIds
 		}
 
 		Service OrderService {
@@ -101,10 +101,10 @@ BoundedContext Inventory {
 	Aggregate Product {
 		Entity Product {
 			aggregateRoot
-			key String productId
+			String productId key
 			String name
 			String description
-			Int stockLevel
+			int stockLevel
 		}
 
 		ValueObject ProductCategory {
@@ -114,12 +114,12 @@ BoundedContext Inventory {
 
 		DomainEvent StockDepleted {
 			String productId
-			Int remainingStock
+			int remainingStock
 		}
 
 		Command ReserveStock {
 			String productId
-			Int quantity
+			int quantity
 		}
 	}
 }
@@ -131,7 +131,7 @@ BoundedContext Shipping {
 	Aggregate Shipment {
 		Entity Shipment {
 			aggregateRoot
-			key String shipmentId
+			String shipmentId key
 			String orderId
 			String trackingNumber
 			String status

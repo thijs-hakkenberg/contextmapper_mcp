@@ -63,6 +63,7 @@ const CF = createToken({ name: 'CF', pattern: /CF/ });
 const Contains = createToken({ name: 'Contains', pattern: /contains/ });
 const Implements = createToken({ name: 'Implements', pattern: /implements/ });
 const Type = createToken({ name: 'Type', pattern: /type/ });
+const State = createToken({ name: 'State', pattern: /state/ });
 const DomainVisionStatement = createToken({ name: 'DomainVisionStatement', pattern: /domainVisionStatement/ });
 const Responsibilities = createToken({ name: 'Responsibilities', pattern: /responsibilities/ });
 const ImplementationTechnology = createToken({ name: 'ImplementationTechnology', pattern: /implementationTechnology/ });
@@ -72,6 +73,12 @@ const Def = createToken({ name: 'Def', pattern: /def/ });
 const Key = createToken({ name: 'Key', pattern: /key/ });
 const Nullable = createToken({ name: 'Nullable', pattern: /nullable/ });
 const ExposedAggregates = createToken({ name: 'ExposedAggregates', pattern: /exposedAggregates/ });
+
+// Collection types
+const ListType = createToken({ name: 'ListType', pattern: /List/ });
+const SetType = createToken({ name: 'SetType', pattern: /Set/ });
+const LAngle = createToken({ name: 'LAngle', pattern: /</ });
+const RAngle = createToken({ name: 'RAngle', pattern: />/ });
 
 // State keywords
 const AsIs = createToken({ name: 'AsIs', pattern: /AS_IS/ });
@@ -133,6 +140,7 @@ const allTokens = [
   Contains,
   Implements,
   Type,
+  State,
   DomainVisionStatement,
   Responsibilities,
   ImplementationTechnology,
@@ -142,6 +150,8 @@ const allTokens = [
   Key,
   Nullable,
   ExposedAggregates,
+  ListType,
+  SetType,
   AsIs,
   ToBe,
   Meta,
@@ -153,6 +163,8 @@ const allTokens = [
   RParen,
   LSquare,
   RSquare,
+  LAngle,
+  RAngle,
   Comma,
   Colon,
   Semicolon,
@@ -191,6 +203,7 @@ class CMLParserClass extends CstParser {
     this.CONSUME(LCurly);
     this.MANY(() => {
       this.OR([
+        { ALT: () => this.SUBRULE(this.contextMapType) },
         { ALT: () => this.SUBRULE(this.contextMapState) },
         { ALT: () => this.SUBRULE(this.contextMapContains) },
         { ALT: () => this.SUBRULE(this.relationshipDecl) },
@@ -199,9 +212,17 @@ class CMLParserClass extends CstParser {
     this.CONSUME(RCurly);
   });
 
-  private contextMapState = this.RULE('contextMapState', () => {
+  // type = SYSTEM_LANDSCAPE | ORGANIZATIONAL
+  private contextMapType = this.RULE('contextMapType', () => {
     this.CONSUME(Type);
-    this.CONSUME(Equals);
+    this.OPTION(() => this.CONSUME(Equals));
+    this.CONSUME(Identifier); // SYSTEM_LANDSCAPE or ORGANIZATIONAL
+  });
+
+  // state = AS_IS | TO_BE
+  private contextMapState = this.RULE('contextMapState', () => {
+    this.CONSUME(State);
+    this.OPTION(() => this.CONSUME(Equals));
     this.OR([
       { ALT: () => this.CONSUME(AsIs) },
       { ALT: () => this.CONSUME(ToBe) },
@@ -453,12 +474,31 @@ class CMLParserClass extends CstParser {
     });
   });
 
-  // Attribute declaration
+  // Attribute declaration: Type name key? nullable? ;?
+  // Also supports: List<Type> name or Set<Type> name
   private attributeDecl = this.RULE('attributeDecl', () => {
+    // Type (can be collection type like List<String>)
+    this.OR([
+      {
+        ALT: () => {
+          this.OR2([
+            { ALT: () => this.CONSUME(ListType) },
+            { ALT: () => this.CONSUME(SetType) },
+          ]);
+          this.CONSUME(LAngle);
+          this.CONSUME(Identifier); // inner type
+          this.CONSUME(RAngle);
+        },
+      },
+      { ALT: () => this.CONSUME2(Identifier) }, // simple type
+    ]);
+    // Name
+    this.CONSUME3(Identifier);
+    // Optional modifiers (after name)
     this.OPTION(() => this.CONSUME(Key));
     this.OPTION2(() => this.CONSUME(Nullable));
-    this.CONSUME(Identifier); // type
-    this.CONSUME2(Identifier); // name
+    // Optional semicolon
+    this.OPTION3(() => this.CONSUME(Semicolon));
   });
 
   // Operation declaration
@@ -922,10 +962,22 @@ function visitAttribute(cst: CstNode): Attribute {
   const children = cst.children;
   const identifiers = getAllTokens(children, 'Identifier');
 
-  const attr: Attribute = {
-    type: identifiers[0]?.image || 'String',
-    name: identifiers[1]?.image || 'unnamed',
-  };
+  let type: string;
+  let name: string;
+
+  // Check for collection types (List<Type> or Set<Type>)
+  if (children['ListType'] || children['SetType']) {
+    const collectionType = children['ListType'] ? 'List' : 'Set';
+    const innerType = identifiers[0]?.image || 'Object';
+    type = `${collectionType}<${innerType}>`;
+    name = identifiers[1]?.image || 'unnamed';
+  } else {
+    // Simple type: Type name
+    type = identifiers[0]?.image || 'String';
+    name = identifiers[1]?.image || 'unnamed';
+  }
+
+  const attr: Attribute = { type, name };
 
   if (children['Key']) {
     attr.key = true;
