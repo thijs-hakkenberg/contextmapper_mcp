@@ -15,7 +15,7 @@ import type {
   KnowledgeLevel,
 } from '../model/types.js';
 import { getCurrentModel } from './model-tools.js';
-import { sanitizeIdentifier, validateAttributes } from '../model/validation.js';
+import { sanitizeIdentifier, validateAttributes, isReservedDomainObjectName } from '../model/validation.js';
 
 // Helper to find aggregate in a bounded context
 function findAggregate(contextName: string, aggregateName: string): { aggregate: Aggregate; contextIdx: number } | null {
@@ -134,6 +134,15 @@ export function createAggregate(params: CreateAggregateParams): CreateAggregateR
   }
 
   const name = sanitizeIdentifier(params.name);
+
+  // Check if name is a reserved keyword (cannot be escaped for domain object names)
+  const reservedCheck = isReservedDomainObjectName(name);
+  if (reservedCheck.isReserved) {
+    return {
+      success: false,
+      error: `'${name}' is a reserved CML keyword and cannot be used as an Aggregate name. Try: ${reservedCheck.suggestion}`,
+    };
+  }
 
   // Check for duplicate name
   if (bc.aggregates.some(a => a.name === name)) {
@@ -277,6 +286,15 @@ export function addEntity(params: AddEntityParams): AddEntityResult {
   const { aggregate } = result;
   const name = sanitizeIdentifier(params.name);
 
+  // Check if name is a reserved keyword (cannot be escaped for domain object names)
+  const reservedCheck = isReservedDomainObjectName(name);
+  if (reservedCheck.isReserved) {
+    return {
+      success: false,
+      error: `'${name}' is a reserved CML keyword and cannot be used as an Entity name. Try: ${reservedCheck.suggestion}`,
+    };
+  }
+
   // Check for duplicate within aggregate
   if (aggregate.entities.some(e => e.name === name)) {
     return { success: false, error: `Entity '${name}' already exists in aggregate '${params.aggregateName}'` };
@@ -357,6 +375,15 @@ export function addValueObject(params: AddValueObjectParams): AddValueObjectResu
 
   const { aggregate } = result;
   const name = sanitizeIdentifier(params.name);
+
+  // Check if name is a reserved keyword (cannot be escaped for domain object names)
+  const reservedCheck = isReservedDomainObjectName(name);
+  if (reservedCheck.isReserved) {
+    return {
+      success: false,
+      error: `'${name}' is a reserved CML keyword and cannot be used as a Value Object name. Try: ${reservedCheck.suggestion}`,
+    };
+  }
 
   // Check for duplicate within aggregate
   if (aggregate.valueObjects.some(vo => vo.name === name)) {
@@ -507,6 +534,15 @@ export function addDomainEvent(params: AddDomainEventParams): AddDomainEventResu
   const { aggregate } = result;
   const name = sanitizeIdentifier(params.name);
 
+  // Check if name is a reserved keyword (cannot be escaped for domain object names)
+  const reservedCheck = isReservedDomainObjectName(name);
+  if (reservedCheck.isReserved) {
+    return {
+      success: false,
+      error: `'${name}' is a reserved CML keyword and cannot be used as a Domain Event name. Try: ${reservedCheck.suggestion}`,
+    };
+  }
+
   // Check for duplicate within aggregate
   if (aggregate.domainEvents.some(e => e.name === name)) {
     return { success: false, error: `Domain event '${name}' already exists in aggregate '${params.aggregateName}'` };
@@ -577,6 +613,15 @@ export function addCommand(params: AddCommandParams): AddCommandResult {
 
   const { aggregate } = result;
   const name = sanitizeIdentifier(params.name);
+
+  // Check if name is a reserved keyword (cannot be escaped for domain object names)
+  const reservedCheck = isReservedDomainObjectName(name);
+  if (reservedCheck.isReserved) {
+    return {
+      success: false,
+      error: `'${name}' is a reserved CML keyword and cannot be used as a Command name. Try: ${reservedCheck.suggestion}`,
+    };
+  }
 
   // Check for duplicate within aggregate
   if (aggregate.commands.some(c => c.name === name)) {

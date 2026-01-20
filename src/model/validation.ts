@@ -297,6 +297,56 @@ export function sanitizeIdentifier(name: string): string {
   return sanitized || '_unnamed';
 }
 
+// CML reserved keywords that CANNOT be used as domain object names (Entity, ValueObject, etc.)
+// These are different from attribute names - attribute names can be escaped with ^, but
+// domain object names cannot be escaped and will cause syntax errors.
+const RESERVED_DOMAIN_OBJECT_NAMES = new Set([
+  // CML structural keywords (case-insensitive check)
+  'aggregate', 'application', 'boundedcontext', 'command', 'consumer', 'context',
+  'domain', 'domainevent', 'entity', 'enum', 'event', 'flow', 'module',
+  'process', 'projection', 'repository', 'resource', 'responsibilities',
+  'saga', 'service', 'subdomain', 'usecase', 'valueobject',
+  // Common programming keywords that cause issues
+  'abstract', 'class', 'extends', 'implements', 'import', 'interface',
+  'package', 'private', 'protected', 'public', 'static',
+  // Other problematic names
+  'list', 'map', 'set', 'string', 'int', 'boolean', 'void', 'null', 'true', 'false',
+]);
+
+/**
+ * Checks if a name is a reserved keyword that cannot be used for domain objects.
+ * Domain object names (Entity, ValueObject, Aggregate, etc.) cannot be escaped with ^
+ * unlike attribute names, so they must be rejected outright.
+ */
+export function isReservedDomainObjectName(name: string): { isReserved: boolean; suggestion?: string } {
+  const lowerName = name.toLowerCase();
+
+  if (RESERVED_DOMAIN_OBJECT_NAMES.has(lowerName)) {
+    // Generate a helpful suggestion
+    const suggestions: Record<string, string> = {
+      'resource': 'MCPResource, DomainResource, or ResourceDefinition',
+      'entity': 'DomainEntity or a more specific name',
+      'service': 'DomainService or ApplicationService',
+      'event': 'DomainEvent or a more specific event name',
+      'command': 'DomainCommand or a more specific command name',
+      'aggregate': 'AggregateRoot or a more specific name',
+      'repository': 'DataRepository or a more specific name',
+      'module': 'DomainModule or a more specific name',
+      'context': 'DomainContext or a more specific name',
+      'process': 'BusinessProcess or WorkflowProcess',
+      'flow': 'WorkFlow or DataFlow',
+      'projection': 'ReadProjection or QueryProjection',
+    };
+
+    return {
+      isReserved: true,
+      suggestion: suggestions[lowerName] || `${name}Definition, ${name}Model, or a more specific domain name`,
+    };
+  }
+
+  return { isReserved: false };
+}
+
 // Valid CML primitive types
 const VALID_PRIMITIVE_TYPES = new Set([
   'String', 'string',
