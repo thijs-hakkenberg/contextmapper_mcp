@@ -10,7 +10,8 @@ This guide covers best practices for creating Domain-Driven Design models using 
 4. [Unique Naming Across Bounded Contexts](#unique-naming-across-bounded-contexts)
 5. [Complete Workflow Example](#complete-workflow-example)
 6. [Reserved Keywords](#reserved-keywords)
-7. [Tool Reference](#tool-reference)
+7. [Valid Attribute Types](#valid-attribute-types)
+8. [Tool Reference](#tool-reference)
 
 ---
 
@@ -554,6 +555,88 @@ Example:
 // Input attribute name: "description"
 // Output in CML file: "String ^description"
 ```
+
+---
+
+## Valid Attribute Types
+
+CML has specific rules for attribute types. The MCP server **validates types at creation time** and will reject invalid types with helpful error messages.
+
+### ✅ Valid Types
+
+| Category | Types | Example |
+|----------|-------|---------|
+| **Strings** | `String`, `string` | `String name` |
+| **Integers** | `int`, `Integer`, `long`, `Long`, `short`, `Short`, `byte`, `Byte` | `int quantity` |
+| **Decimals** | `float`, `Float`, `double`, `Double`, `BigDecimal`, `BigInteger` | `BigDecimal price` |
+| **Booleans** | `boolean`, `Boolean` | `boolean isActive` |
+| **Date/Time** | `Date`, `DateTime`, `Timestamp` | `DateTime createdAt` |
+| **Binary** | `Blob`, `Clob` | `Blob content` |
+| **Other** | `UUID`, `Object`, `char`, `Character` | `UUID id` |
+| **Collections** | `List<Type>`, `Set<Type>` | `List<String> tags` |
+| **References** | `- TypeName` | `- OrderId orderId` |
+| **Domain Objects** | Any valid identifier | `Address shippingAddress` |
+
+### ❌ Invalid Types (Will Be Rejected)
+
+| Invalid Type | Error Message | Solution |
+|--------------|---------------|----------|
+| `Map<String, Any>` | Map<K,V> is not supported in CML | Create a Value Object with named fields |
+| `Any` | Any is not supported in CML | Use a specific type or `Object` |
+| `Tuple` | Tuple is not supported in CML | Create a Value Object with named fields |
+| `Runnable` | Runnable is not supported | Omit implementation details from domain model |
+| `Callbacks` | Callback types are not supported | Model callback contract as Value Object |
+| `Function<T>` | Function types are not supported | Model behavior in Services |
+| `List<Map<String, Any>>` | Nested generics not supported | Use Value Objects for complex structures |
+
+### Examples
+
+```typescript
+// ❌ Bad - Will be rejected
+cml_add_entity({
+  contextName: "...",
+  aggregateName: "...",
+  name: "Agent",
+  attributes: [
+    { name: "config", type: "Map<String, Any>" },     // ERROR!
+    { name: "callbacks", type: "Callbacks" },          // ERROR!
+    { name: "handler", type: "Runnable" },             // ERROR!
+  ]
+})
+
+// ✅ Good - Use Value Objects instead
+cml_add_value_object({
+  contextName: "...",
+  aggregateName: "...",
+  name: "AgentConfig",
+  attributes: [
+    { name: "maxIterations", type: "int" },
+    { name: "timeout", type: "long" },
+    { name: "model", type: "String" }
+  ]
+})
+
+cml_add_entity({
+  contextName: "...",
+  aggregateName: "...",
+  name: "Agent",
+  attributes: [
+    { name: "config", type: "- AgentConfig" },        // Reference to Value Object
+    { name: "tools", type: "List<Tool>" },            // Collection of domain objects
+    { name: "id", type: "- AgentId" }                 // ID Value Object
+  ]
+})
+```
+
+### Modeling Complex Structures
+
+When you need to model complex structures like maps or tuples, convert them to Value Objects:
+
+| Instead of... | Use... |
+|---------------|--------|
+| `Map<String, Any> metadata` | `ValueObject Metadata { String key1; String key2; ... }` |
+| `Tuple<AgentAction, String>` | `ValueObject ActionResult { AgentAction action; String result; }` |
+| `List<Tuple<String, Int>>` | `ValueObject NamedValue { String name; int value; }` + `List<NamedValue>` |
 
 ---
 

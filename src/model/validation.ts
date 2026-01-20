@@ -296,3 +296,136 @@ export function sanitizeIdentifier(name: string): string {
 
   return sanitized || '_unnamed';
 }
+
+// Valid CML primitive types
+const VALID_PRIMITIVE_TYPES = new Set([
+  'String', 'string',
+  'int', 'Integer',
+  'long', 'Long',
+  'float', 'Float',
+  'double', 'Double',
+  'boolean', 'Boolean',
+  'Date', 'DateTime', 'Timestamp',
+  'Blob', 'Clob',
+  'BigDecimal', 'BigInteger',
+  'byte', 'Byte',
+  'short', 'Short',
+  'char', 'Character',
+  'Object', // Generic object reference
+  'UUID',
+]);
+
+// Types that are NOT valid in CML
+const INVALID_TYPE_PATTERNS = [
+  { pattern: /^Map\s*</, message: 'Map<K,V> is not supported in CML. Use a Value Object with named fields instead.' },
+  { pattern: /^Dictionary\s*</, message: 'Dictionary<K,V> is not supported in CML. Use a Value Object with named fields instead.' },
+  { pattern: /^Tuple\s*</, message: 'Tuple is not supported in CML. Use a Value Object with named fields instead.' },
+  { pattern: /^Tuple$/, message: 'Tuple is not supported in CML. Use a Value Object with named fields instead.' },
+  { pattern: /^Any$/, message: 'Any is not supported in CML. Use a specific type or Object instead.' },
+  { pattern: /^any$/, message: 'any is not supported in CML. Use a specific type or Object instead.' },
+  { pattern: /^dynamic$/, message: 'dynamic is not supported in CML. Use a specific type or Object instead.' },
+  { pattern: /^void$/, message: 'void is not valid for attributes. Remove this attribute or use a specific type.' },
+  { pattern: /^Callbacks?$/, message: 'Callback types are not supported in CML. Model the callback contract as a separate Value Object or omit.' },
+  { pattern: /^Function\s*</, message: 'Function types are not supported in CML. Model behavior in Services instead.' },
+  { pattern: /^Runnable$/, message: 'Runnable is not supported in CML. This is an implementation detail, not a domain concept.' },
+];
+
+/**
+ * Validates that an attribute type is valid CML syntax.
+ * Returns { valid: true } or { valid: false, error: string, suggestion?: string }
+ */
+export function validateAttributeType(type: string): { valid: boolean; error?: string; suggestion?: string } {
+  const trimmedType = type.trim();
+
+  // Check for explicitly invalid patterns first
+  for (const { pattern, message } of INVALID_TYPE_PATTERNS) {
+    if (pattern.test(trimmedType)) {
+      return { valid: false, error: message };
+    }
+  }
+
+  // Check for reference type (- TypeName)
+  if (trimmedType.startsWith('- ')) {
+    const refType = trimmedType.slice(2).trim();
+    if (!isValidIdentifier(refType)) {
+      return {
+        valid: false,
+        error: `Invalid reference type '${refType}'. Reference types must be valid identifiers.`
+      };
+    }
+    return { valid: true };
+  }
+
+  // Check for List or Set collections
+  const collectionMatch = trimmedType.match(/^(List|Set)\s*<\s*(.+)\s*>$/);
+  if (collectionMatch) {
+    const innerType = collectionMatch[2].trim();
+
+    // Check for nested generics (not allowed)
+    if (innerType.includes('<')) {
+      return {
+        valid: false,
+        error: `Nested generic types like '${trimmedType}' are not supported in CML.`,
+        suggestion: 'Use a Value Object to wrap complex nested structures.'
+      };
+    }
+
+    // Check for invalid inner types
+    for (const { pattern, message } of INVALID_TYPE_PATTERNS) {
+      if (pattern.test(innerType)) {
+        return { valid: false, error: `Invalid collection element type: ${message}` };
+      }
+    }
+
+    // Inner type should be a valid identifier (either primitive or domain object reference)
+    if (!isValidIdentifier(innerType) && !VALID_PRIMITIVE_TYPES.has(innerType)) {
+      return {
+        valid: false,
+        error: `Invalid collection element type '${innerType}'.`,
+        suggestion: `Use a valid type like List<String> or List<YourValueObject>.`
+      };
+    }
+
+    return { valid: true };
+  }
+
+  // Check if it's a primitive type
+  if (VALID_PRIMITIVE_TYPES.has(trimmedType)) {
+    return { valid: true };
+  }
+
+  // Check if it's a valid identifier (domain object reference without -)
+  if (isValidIdentifier(trimmedType)) {
+    return { valid: true };
+  }
+
+  // Unknown or invalid type
+  return {
+    valid: false,
+    error: `Invalid type '${trimmedType}'.`,
+    suggestion: `Valid types include: String, int, boolean, DateTime, List<Type>, Set<Type>, or domain object names. Use '- TypeName' for explicit references.`
+  };
+}
+
+/**
+ * Validates all attributes and returns errors for any invalid types.
+ */
+export function validateAttributes(
+  attributes: Array<{ name: string; type: string }>,
+  elementName: string
+): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+
+  for (const attr of attributes) {
+    const typeValidation = validateAttributeType(attr.type);
+    if (!typeValidation.valid) {
+      let errorMsg = `Attribute '${attr.name}' in '${elementName}' has invalid type: ${typeValidation.error}`;
+      if (typeValidation.suggestion) {
+        errorMsg += ` ${typeValidation.suggestion}`;
+      }
+      errors.push(errorMsg);
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}

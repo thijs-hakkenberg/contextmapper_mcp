@@ -15,7 +15,7 @@ import type {
   KnowledgeLevel,
 } from '../model/types.js';
 import { getCurrentModel } from './model-tools.js';
-import { sanitizeIdentifier } from '../model/validation.js';
+import { sanitizeIdentifier, validateAttributes } from '../model/validation.js';
 
 // Helper to find aggregate in a bounded context
 function findAggregate(contextName: string, aggregateName: string): { aggregate: Aggregate; contextIdx: number } | null {
@@ -291,6 +291,17 @@ export function addEntity(params: AddEntityParams): AddEntityResult {
     };
   }
 
+  // Validate attribute types
+  if (params.attributes && params.attributes.length > 0) {
+    const attrValidation = validateAttributes(params.attributes, name);
+    if (!attrValidation.valid) {
+      return {
+        success: false,
+        error: attrValidation.errors.join('\n'),
+      };
+    }
+  }
+
   const entity: Entity = {
     id: uuidv4(),
     name,
@@ -359,6 +370,17 @@ export function addValueObject(params: AddValueObjectParams): AddValueObjectResu
       success: false,
       error: `Value object name '${name}' already exists in ${duplicateCheck.existingLocation}. ${duplicateCheck.suggestion}`,
     };
+  }
+
+  // Validate attribute types
+  if (params.attributes && params.attributes.length > 0) {
+    const attrValidation = validateAttributes(params.attributes, name);
+    if (!attrValidation.valid) {
+      return {
+        success: false,
+        error: attrValidation.errors.join('\n'),
+      };
+    }
   }
 
   const vo: ValueObject = {
@@ -499,6 +521,17 @@ export function addDomainEvent(params: AddDomainEventParams): AddDomainEventResu
     };
   }
 
+  // Validate attribute types
+  if (params.attributes && params.attributes.length > 0) {
+    const attrValidation = validateAttributes(params.attributes, name);
+    if (!attrValidation.valid) {
+      return {
+        success: false,
+        error: attrValidation.errors.join('\n'),
+      };
+    }
+  }
+
   const event: DomainEvent = {
     id: uuidv4(),
     name,
@@ -557,6 +590,17 @@ export function addCommand(params: AddCommandParams): AddCommandResult {
       success: false,
       error: `Command name '${name}' already exists in ${duplicateCheck.existingLocation}. ${duplicateCheck.suggestion}`,
     };
+  }
+
+  // Validate attribute types
+  if (params.attributes && params.attributes.length > 0) {
+    const attrValidation = validateAttributes(params.attributes, name);
+    if (!attrValidation.valid) {
+      return {
+        success: false,
+        error: attrValidation.errors.join('\n'),
+      };
+    }
   }
 
   const cmd: Command = {
