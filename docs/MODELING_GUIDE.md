@@ -536,18 +536,19 @@ The following keywords are automatically escaped with `^` when used as attribute
 | `false`, `final`, `finally`, `for`, `function` |
 | `gap`, `get` |
 | `hint`, `hook` |
-| `if`, `implements`, `implementationTechnology`, `import`, `in`, `instanceof` |
+| `if`, `implements`, `implementationTechnology`, `import`, `in`, `input`, `instanceof` |
 | `key`, `knowledgeLevel` |
 | `let`, `list` |
 | `map`, `module`, `name` |
 | `new`, `null`, `nullable` |
-| `of`, `operation`, `optional` |
-| `package`, `param`, `plateau`, `private`, `protected`, `public` |
-| `ref`, `repository`, `required`, `responsibilities`, `return` |
+| `of`, `operation`, `optional`, `output` |
+| `package`, `param`, `path`, `plateau`, `private`, `protected`, `public` |
+| `query` |
+| `ref`, `repository`, `required`, `responsibilities`, `result`, `return` |
 | `scaffold`, `service`, `set`, `state`, `static`, `subdomain`, `super`, `switch` |
 | `this`, `throw`, `trait`, `true`, `try`, `type` |
 | `url`, `use` |
-| `valueObject`, `var`, `version`, `void` |
+| `value`, `valueObject`, `var`, `version`, `void` |
 | `while`, `with` |
 
 Example:
