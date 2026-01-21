@@ -9,6 +9,29 @@ An MCP (Model Context Protocol) server that enables AI assistants to work with D
 - **Work with aggregates** - Define entities, value objects, domain events, commands, and services
 - **Context map relationships** - Define and manage relationships between bounded contexts (Partnership, SharedKernel, Upstream-Downstream with patterns like OHS, PL, ACL, CF)
 - **Generate PlantUML diagrams** - Visualize context maps and aggregate structures
+- **Real-time validation** - Catch errors at creation time, not at save time
+- **ID Value Objects** - Dedicated tool for creating DDD-compliant identifier types
+
+## Validation Features
+
+The server validates models in real-time to prevent common CML errors:
+
+| Validation | When | Example Error |
+|------------|------|---------------|
+| Duplicate names | On create | `'AgentId' already exists in ContextA...` |
+| Invalid types | On create | `Map<K,V> is not supported in CML...` |
+| Reserved names | On create | `'Resource' is a reserved keyword...` |
+| Reserved attributes | On save | Auto-escaped with `^` prefix |
+
+### Valid Attribute Types
+
+- **Primitives**: `String`, `int`, `long`, `boolean`, `DateTime`, `BigDecimal`, `UUID`
+- **Collections**: `List<Type>`, `Set<Type>`
+- **References**: `- TypeName` (reference to domain objects)
+
+### Invalid Types (Rejected)
+
+- `Map<K,V>`, `Any`, `Tuple`, `Runnable`, `Callbacks`, nested generics
 
 ## Installation
 
