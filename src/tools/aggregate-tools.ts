@@ -873,3 +873,504 @@ export function deleteService(params: DeleteServiceParams): DeleteServiceResult 
   aggregate.services.splice(idx, 1);
   return { success: true };
 }
+
+// Tool: cml_batch_add_elements
+// Batch creation of multiple domain objects in a single call
+export interface BatchAddElementsParams {
+  contextName: string;
+  aggregateName: string;
+  failFast?: boolean; // Default true - stop on first error
+  entities?: Array<{
+    name: string;
+    aggregateRoot?: boolean;
+    attributes?: Array<{ name: string; type: string; key?: boolean; nullable?: boolean }>;
+  }>;
+  valueObjects?: Array<{
+    name: string;
+    attributes?: Array<{ name: string; type: string }>;
+  }>;
+  identifiers?: Array<{
+    name: string; // Will be normalized to end with "Id"
+  }>;
+  domainEvents?: Array<{
+    name: string;
+    attributes?: Array<{ name: string; type: string }>;
+  }>;
+  commands?: Array<{
+    name: string;
+    attributes?: Array<{ name: string; type: string }>;
+  }>;
+  services?: Array<{
+    name: string;
+    operations?: Array<{
+      name: string;
+      returnType?: string;
+      parameters?: Array<{ name: string; type: string }>;
+    }>;
+  }>;
+}
+
+export interface BatchAddElementsResult {
+  success: boolean;
+  created: {
+    entities: Array<{ id: string; name: string; isAggregateRoot: boolean }>;
+    valueObjects: Array<{ id: string; name: string }>;
+    identifiers: Array<{ id: string; name: string; type: string }>;
+    domainEvents: Array<{ id: string; name: string }>;
+    commands: Array<{ id: string; name: string }>;
+    services: Array<{ id: string; name: string }>;
+  };
+  errors?: Array<{ elementType: string; name: string; error: string }>;
+}
+
+interface ValidationItem {
+  elementType: 'entity' | 'valueObject' | 'identifier' | 'domainEvent' | 'command' | 'service';
+  name: string;
+  error: string;
+}
+
+export function batchAddElements(params: BatchAddElementsParams): BatchAddElementsResult {
+  const model = getCurrentModel();
+  if (!model) {
+    return {
+      success: false,
+      created: { entities: [], valueObjects: [], identifiers: [], domainEvents: [], commands: [], services: [] },
+      errors: [{ elementType: 'model', name: '', error: 'No model is currently loaded' }],
+    };
+  }
+
+  // Find the target aggregate
+  const aggregateResult = findAggregate(params.contextName, params.aggregateName);
+  if (!aggregateResult) {
+    return {
+      success: false,
+      created: { entities: [], valueObjects: [], identifiers: [], domainEvents: [], commands: [], services: [] },
+      errors: [{ elementType: 'aggregate', name: params.aggregateName, error: `Aggregate '${params.aggregateName}' not found in context '${params.contextName}'` }],
+    };
+  }
+
+  const { aggregate } = aggregateResult;
+  const failFast = params.failFast !== false; // Default to true
+  const validationErrors: ValidationItem[] = [];
+
+  // ============================================
+  // PHASE 1: Validate ALL elements before mutations
+  // ============================================
+
+  // Track names we're about to create (for duplicate detection within batch)
+  const batchNames = new Set<string>();
+
+  // Validate identifiers
+  const normalizedIdentifiers: Array<{ originalName: string; normalizedName: string }> = [];
+  for (const identifier of params.identifiers || []) {
+    let name = sanitizeIdentifier(identifier.name);
+    if (!name.endsWith('Id')) {
+      name = name + 'Id';
+    }
+    name = name.charAt(0).toUpperCase() + name.slice(1);
+
+    // Check duplicate in batch
+    if (batchNames.has(name)) {
+      validationErrors.push({ elementType: 'identifier', name, error: `Duplicate name '${name}' within this batch` });
+      if (failFast) break;
+      continue;
+    }
+
+    // Check duplicate in aggregate (existing identifier returns success, so skip duplicate check for identifiers in aggregate)
+    // But check cross-context duplicates
+    const duplicateCheck = checkForDuplicateDomainObjectName(name, params.contextName);
+    if (duplicateCheck.isDuplicate) {
+      validationErrors.push({
+        elementType: 'identifier',
+        name,
+        error: `Identifier name '${name}' already exists in ${duplicateCheck.existingLocation}. ${duplicateCheck.suggestion}`,
+      });
+      if (failFast) break;
+      continue;
+    }
+
+    batchNames.add(name);
+    normalizedIdentifiers.push({ originalName: identifier.name, normalizedName: name });
+  }
+
+  // Validate value objects
+  if (validationErrors.length === 0 || !failFast) {
+    for (const vo of params.valueObjects || []) {
+      const name = sanitizeIdentifier(vo.name);
+
+      // Check reserved keyword
+      const reservedCheck = isReservedDomainObjectName(name);
+      if (reservedCheck.isReserved) {
+        validationErrors.push({
+          elementType: 'valueObject',
+          name,
+          error: `'${name}' is a reserved CML keyword and cannot be used as a Value Object name. Try: ${reservedCheck.suggestion}`,
+        });
+        if (failFast) break;
+        continue;
+      }
+
+      // Check duplicate in batch
+      if (batchNames.has(name)) {
+        validationErrors.push({ elementType: 'valueObject', name, error: `Duplicate name '${name}' within this batch` });
+        if (failFast) break;
+        continue;
+      }
+
+      // Check duplicate in aggregate
+      if (aggregate.valueObjects.some(v => v.name === name)) {
+        validationErrors.push({ elementType: 'valueObject', name, error: `Value object '${name}' already exists in aggregate '${params.aggregateName}'` });
+        if (failFast) break;
+        continue;
+      }
+
+      // Check cross-context duplicate
+      const duplicateCheck = checkForDuplicateDomainObjectName(name, params.contextName);
+      if (duplicateCheck.isDuplicate) {
+        validationErrors.push({
+          elementType: 'valueObject',
+          name,
+          error: `Value object name '${name}' already exists in ${duplicateCheck.existingLocation}. ${duplicateCheck.suggestion}`,
+        });
+        if (failFast) break;
+        continue;
+      }
+
+      // Validate attributes
+      if (vo.attributes && vo.attributes.length > 0) {
+        const attrValidation = validateAttributes(vo.attributes, name);
+        if (!attrValidation.valid) {
+          validationErrors.push({ elementType: 'valueObject', name, error: attrValidation.errors.join('; ') });
+          if (failFast) break;
+          continue;
+        }
+      }
+
+      batchNames.add(name);
+    }
+  }
+
+  // Validate entities
+  if (validationErrors.length === 0 || !failFast) {
+    for (const entity of params.entities || []) {
+      const name = sanitizeIdentifier(entity.name);
+
+      // Check reserved keyword
+      const reservedCheck = isReservedDomainObjectName(name);
+      if (reservedCheck.isReserved) {
+        validationErrors.push({
+          elementType: 'entity',
+          name,
+          error: `'${name}' is a reserved CML keyword and cannot be used as an Entity name. Try: ${reservedCheck.suggestion}`,
+        });
+        if (failFast) break;
+        continue;
+      }
+
+      // Check duplicate in batch
+      if (batchNames.has(name)) {
+        validationErrors.push({ elementType: 'entity', name, error: `Duplicate name '${name}' within this batch` });
+        if (failFast) break;
+        continue;
+      }
+
+      // Check duplicate in aggregate
+      if (aggregate.entities.some(e => e.name === name)) {
+        validationErrors.push({ elementType: 'entity', name, error: `Entity '${name}' already exists in aggregate '${params.aggregateName}'` });
+        if (failFast) break;
+        continue;
+      }
+
+      // Check cross-context duplicate
+      const duplicateCheck = checkForDuplicateDomainObjectName(name, params.contextName);
+      if (duplicateCheck.isDuplicate) {
+        validationErrors.push({
+          elementType: 'entity',
+          name,
+          error: `Entity name '${name}' already exists in ${duplicateCheck.existingLocation}. ${duplicateCheck.suggestion}`,
+        });
+        if (failFast) break;
+        continue;
+      }
+
+      // Validate attributes
+      if (entity.attributes && entity.attributes.length > 0) {
+        const attrValidation = validateAttributes(entity.attributes, name);
+        if (!attrValidation.valid) {
+          validationErrors.push({ elementType: 'entity', name, error: attrValidation.errors.join('; ') });
+          if (failFast) break;
+          continue;
+        }
+      }
+
+      batchNames.add(name);
+    }
+  }
+
+  // Validate domain events
+  if (validationErrors.length === 0 || !failFast) {
+    for (const event of params.domainEvents || []) {
+      const name = sanitizeIdentifier(event.name);
+
+      // Check reserved keyword
+      const reservedCheck = isReservedDomainObjectName(name);
+      if (reservedCheck.isReserved) {
+        validationErrors.push({
+          elementType: 'domainEvent',
+          name,
+          error: `'${name}' is a reserved CML keyword and cannot be used as a Domain Event name. Try: ${reservedCheck.suggestion}`,
+        });
+        if (failFast) break;
+        continue;
+      }
+
+      // Check duplicate in batch
+      if (batchNames.has(name)) {
+        validationErrors.push({ elementType: 'domainEvent', name, error: `Duplicate name '${name}' within this batch` });
+        if (failFast) break;
+        continue;
+      }
+
+      // Check duplicate in aggregate
+      if (aggregate.domainEvents.some(e => e.name === name)) {
+        validationErrors.push({ elementType: 'domainEvent', name, error: `Domain event '${name}' already exists in aggregate '${params.aggregateName}'` });
+        if (failFast) break;
+        continue;
+      }
+
+      // Check cross-context duplicate
+      const duplicateCheck = checkForDuplicateDomainObjectName(name, params.contextName);
+      if (duplicateCheck.isDuplicate) {
+        validationErrors.push({
+          elementType: 'domainEvent',
+          name,
+          error: `Domain event name '${name}' already exists in ${duplicateCheck.existingLocation}. ${duplicateCheck.suggestion}`,
+        });
+        if (failFast) break;
+        continue;
+      }
+
+      // Validate attributes
+      if (event.attributes && event.attributes.length > 0) {
+        const attrValidation = validateAttributes(event.attributes, name);
+        if (!attrValidation.valid) {
+          validationErrors.push({ elementType: 'domainEvent', name, error: attrValidation.errors.join('; ') });
+          if (failFast) break;
+          continue;
+        }
+      }
+
+      batchNames.add(name);
+    }
+  }
+
+  // Validate commands
+  if (validationErrors.length === 0 || !failFast) {
+    for (const cmd of params.commands || []) {
+      const name = sanitizeIdentifier(cmd.name);
+
+      // Check reserved keyword
+      const reservedCheck = isReservedDomainObjectName(name);
+      if (reservedCheck.isReserved) {
+        validationErrors.push({
+          elementType: 'command',
+          name,
+          error: `'${name}' is a reserved CML keyword and cannot be used as a Command name. Try: ${reservedCheck.suggestion}`,
+        });
+        if (failFast) break;
+        continue;
+      }
+
+      // Check duplicate in batch
+      if (batchNames.has(name)) {
+        validationErrors.push({ elementType: 'command', name, error: `Duplicate name '${name}' within this batch` });
+        if (failFast) break;
+        continue;
+      }
+
+      // Check duplicate in aggregate
+      if (aggregate.commands.some(c => c.name === name)) {
+        validationErrors.push({ elementType: 'command', name, error: `Command '${name}' already exists in aggregate '${params.aggregateName}'` });
+        if (failFast) break;
+        continue;
+      }
+
+      // Check cross-context duplicate
+      const duplicateCheck = checkForDuplicateDomainObjectName(name, params.contextName);
+      if (duplicateCheck.isDuplicate) {
+        validationErrors.push({
+          elementType: 'command',
+          name,
+          error: `Command name '${name}' already exists in ${duplicateCheck.existingLocation}. ${duplicateCheck.suggestion}`,
+        });
+        if (failFast) break;
+        continue;
+      }
+
+      // Validate attributes
+      if (cmd.attributes && cmd.attributes.length > 0) {
+        const attrValidation = validateAttributes(cmd.attributes, name);
+        if (!attrValidation.valid) {
+          validationErrors.push({ elementType: 'command', name, error: attrValidation.errors.join('; ') });
+          if (failFast) break;
+          continue;
+        }
+      }
+
+      batchNames.add(name);
+    }
+  }
+
+  // Validate services (services don't have cross-context uniqueness requirements like other domain objects)
+  if (validationErrors.length === 0 || !failFast) {
+    for (const svc of params.services || []) {
+      const name = sanitizeIdentifier(svc.name);
+
+      // Check duplicate in aggregate
+      if (aggregate.services.some(s => s.name === name)) {
+        validationErrors.push({ elementType: 'service', name, error: `Service '${name}' already exists in aggregate '${params.aggregateName}'` });
+        if (failFast) break;
+        continue;
+      }
+    }
+  }
+
+  // If validation failed, return errors without making any changes
+  if (validationErrors.length > 0) {
+    return {
+      success: false,
+      created: { entities: [], valueObjects: [], identifiers: [], domainEvents: [], commands: [], services: [] },
+      errors: validationErrors,
+    };
+  }
+
+  // ============================================
+  // PHASE 2: Create all elements (validation passed)
+  // ============================================
+
+  const created: BatchAddElementsResult['created'] = {
+    entities: [],
+    valueObjects: [],
+    identifiers: [],
+    domainEvents: [],
+    commands: [],
+    services: [],
+  };
+
+  // Create identifiers first (as they may be referenced by other elements)
+  for (const { normalizedName } of normalizedIdentifiers) {
+    // Check if it already exists (return existing)
+    const existing = aggregate.valueObjects.find(vo => vo.name === normalizedName);
+    if (existing) {
+      created.identifiers.push({
+        id: existing.id,
+        name: existing.name,
+        type: `- ${existing.name}`,
+      });
+      continue;
+    }
+
+    const vo: ValueObject = {
+      id: uuidv4(),
+      name: normalizedName,
+      attributes: [{ name: 'value', type: 'String' }],
+    };
+    aggregate.valueObjects.push(vo);
+    created.identifiers.push({
+      id: vo.id,
+      name: vo.name,
+      type: `- ${vo.name}`,
+    });
+  }
+
+  // Create value objects
+  for (const voParams of params.valueObjects || []) {
+    const name = sanitizeIdentifier(voParams.name);
+    const vo: ValueObject = {
+      id: uuidv4(),
+      name,
+      attributes: (voParams.attributes || []).map(a => ({
+        name: a.name,
+        type: a.type,
+      })),
+    };
+    aggregate.valueObjects.push(vo);
+    created.valueObjects.push({ id: vo.id, name: vo.name });
+  }
+
+  // Create entities
+  for (const entityParams of params.entities || []) {
+    const name = sanitizeIdentifier(entityParams.name);
+    const entity: Entity = {
+      id: uuidv4(),
+      name,
+      aggregateRoot: entityParams.aggregateRoot,
+      attributes: (entityParams.attributes || []).map(a => ({
+        name: a.name,
+        type: a.type,
+        key: a.key,
+        nullable: a.nullable,
+      })),
+      operations: [],
+    };
+    aggregate.entities.push(entity);
+
+    if (entityParams.aggregateRoot) {
+      aggregate.aggregateRoot = entity;
+    }
+
+    created.entities.push({
+      id: entity.id,
+      name: entity.name,
+      isAggregateRoot: !!entity.aggregateRoot,
+    });
+  }
+
+  // Create domain events
+  for (const eventParams of params.domainEvents || []) {
+    const name = sanitizeIdentifier(eventParams.name);
+    const event: DomainEvent = {
+      id: uuidv4(),
+      name,
+      attributes: (eventParams.attributes || []).map(a => ({
+        name: a.name,
+        type: a.type,
+      })),
+    };
+    aggregate.domainEvents.push(event);
+    created.domainEvents.push({ id: event.id, name: event.name });
+  }
+
+  // Create commands
+  for (const cmdParams of params.commands || []) {
+    const name = sanitizeIdentifier(cmdParams.name);
+    const cmd: Command = {
+      id: uuidv4(),
+      name,
+      attributes: (cmdParams.attributes || []).map(a => ({
+        name: a.name,
+        type: a.type,
+      })),
+    };
+    aggregate.commands.push(cmd);
+    created.commands.push({ id: cmd.id, name: cmd.name });
+  }
+
+  // Create services
+  for (const svcParams of params.services || []) {
+    const name = sanitizeIdentifier(svcParams.name);
+    const svc: DomainService = {
+      id: uuidv4(),
+      name,
+      operations: (svcParams.operations || []).map(op => ({
+        name: op.name,
+        returnType: op.returnType,
+        parameters: op.parameters || [],
+      })),
+    };
+    aggregate.services.push(svc);
+    created.services.push({ id: svc.id, name: svc.name });
+  }
+
+  return { success: true, created };
+}

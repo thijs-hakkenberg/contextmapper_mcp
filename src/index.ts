@@ -50,6 +50,7 @@ import {
   deleteDomainEvent,
   deleteCommand,
   deleteService,
+  batchAddElements,
 } from './tools/aggregate-tools.js';
 import {
   createRelationship,
@@ -514,6 +515,154 @@ const tools: Tool[] = [
       required: ['contextName', 'aggregateName', 'serviceName'],
     },
   },
+  {
+    name: 'cml_batch_add_elements',
+    description: 'Batch creation of multiple domain objects (entities, value objects, identifiers, events, commands, services) in a single call. More efficient than individual calls. Validates all elements before creating any.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        contextName: { type: 'string', description: 'Name of the bounded context' },
+        aggregateName: { type: 'string', description: 'Name of the aggregate' },
+        failFast: { type: 'boolean', description: 'Stop on first error (default: true). Set to false to collect all errors.' },
+        entities: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string' },
+              aggregateRoot: { type: 'boolean' },
+              attributes: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string' },
+                    type: { type: 'string' },
+                    key: { type: 'boolean' },
+                    nullable: { type: 'boolean' },
+                  },
+                  required: ['name', 'type'],
+                },
+              },
+            },
+            required: ['name'],
+          },
+          description: 'Entities to create',
+        },
+        valueObjects: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string' },
+              attributes: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string' },
+                    type: { type: 'string' },
+                  },
+                  required: ['name', 'type'],
+                },
+              },
+            },
+            required: ['name'],
+          },
+          description: 'Value objects to create',
+        },
+        identifiers: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string', description: 'Name of identifier (will be normalized to end with "Id")' },
+            },
+            required: ['name'],
+          },
+          description: 'ID value objects to create (following DDD best practices)',
+        },
+        domainEvents: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string' },
+              attributes: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string' },
+                    type: { type: 'string' },
+                  },
+                  required: ['name', 'type'],
+                },
+              },
+            },
+            required: ['name'],
+          },
+          description: 'Domain events to create',
+        },
+        commands: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string' },
+              attributes: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string' },
+                    type: { type: 'string' },
+                  },
+                  required: ['name', 'type'],
+                },
+              },
+            },
+            required: ['name'],
+          },
+          description: 'Commands to create',
+        },
+        services: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string' },
+              operations: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string' },
+                    returnType: { type: 'string' },
+                    parameters: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          name: { type: 'string' },
+                          type: { type: 'string' },
+                        },
+                        required: ['name', 'type'],
+                      },
+                    },
+                  },
+                  required: ['name'],
+                },
+              },
+            },
+            required: ['name'],
+          },
+          description: 'Domain services to create',
+        },
+      },
+      required: ['contextName', 'aggregateName'],
+    },
+  },
 
   // Relationship Tools
   {
@@ -753,6 +902,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         break;
       case 'cml_delete_service':
         result = deleteService(args as any);
+        break;
+      case 'cml_batch_add_elements':
+        result = batchAddElements(args as any);
         break;
 
       // Relationship Tools

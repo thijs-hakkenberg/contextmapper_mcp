@@ -18,11 +18,50 @@ cml_create_bounded_context({
   implementationTechnology: "Python, FastAPI"
 })
 
-// 4. Create aggregates with ID Value Objects
+// 4. Create aggregate
 cml_create_aggregate({ contextName: "OrderManagement", name: "OrderAggregate" })
-cml_add_identifier({ contextName: "OrderManagement", aggregateName: "OrderAggregate", name: "OrderId" })
 
-// 5. Add entities referencing the IDs
+// 5. RECOMMENDED: Use batch creation for aggregate contents
+cml_batch_add_elements({
+  contextName: "OrderManagement",
+  aggregateName: "OrderAggregate",
+  identifiers: [
+    { name: "OrderId" }
+  ],
+  entities: [
+    {
+      name: "Order",
+      aggregateRoot: true,
+      attributes: [
+        { name: "orderId", type: "- OrderId", key: true },
+        { name: "status", type: "String" }
+      ]
+    }
+  ],
+  valueObjects: [
+    {
+      name: "OrderStatus",
+      attributes: [{ name: "status", type: "String" }]
+    }
+  ],
+  domainEvents: [
+    { name: "OrderCreated", attributes: [{ name: "orderId", type: "- OrderId" }] }
+  ],
+  commands: [
+    { name: "CreateOrder", attributes: [{ name: "customerId", type: "String" }] }
+  ]
+})
+
+// 6. Save the model
+cml_save_model({ path: "/path/to/model.cml" })
+```
+
+### Alternative: Individual Tool Calls
+
+For simple cases or when you need fine-grained control:
+
+```typescript
+cml_add_identifier({ contextName: "OrderManagement", aggregateName: "OrderAggregate", name: "OrderId" })
 cml_add_entity({
   contextName: "OrderManagement",
   aggregateName: "OrderAggregate",
@@ -33,9 +72,6 @@ cml_add_entity({
     { name: "status", type: "String" }
   ]
 })
-
-// 6. Save the model
-cml_save_model({ path: "/path/to/model.cml" })
 ```
 
 ## Critical Rules
@@ -136,12 +172,53 @@ You don't need to escape them manually - the server handles it.
 2. **Create all bounded contexts first**
 3. **For each context:**
    - Create aggregate(s)
-   - Create ID Value Objects using `cml_add_identifier`
-   - Create other Value Objects
-   - Create Entities (referencing the IDs)
-   - Create Domain Events and Commands
+   - **Use `cml_batch_add_elements` to add all aggregate contents at once** (preferred)
+   - Or add elements individually if needed
 4. **Create relationships between contexts**
 5. **Save and validate**
+
+## Batch Creation Best Practices
+
+**ALWAYS prefer `cml_batch_add_elements`** over individual tool calls when populating aggregates:
+
+```typescript
+// GOOD - Single call creates everything
+cml_batch_add_elements({
+  contextName: "CustomerManagement",
+  aggregateName: "Customer",
+  identifiers: [{ name: "CustomerId" }],
+  entities: [{ name: "Customer", aggregateRoot: true, attributes: [...] }],
+  valueObjects: [{ name: "Address", attributes: [...] }],
+  domainEvents: [{ name: "CustomerRegistered", attributes: [...] }],
+  commands: [{ name: "RegisterCustomer", attributes: [...] }]
+})
+
+// AVOID - Multiple calls (slower, more tokens)
+cml_add_identifier({ ... })
+cml_add_entity({ ... })
+cml_add_value_object({ ... })
+cml_add_domain_event({ ... })
+cml_add_command({ ... })
+```
+
+**Benefits of batch creation:**
+- **Faster**: 1 round-trip vs 5+ round-trips
+- **Atomic validation**: All elements validated before any are created
+- **Fewer tokens**: Less overhead from repeated context/aggregate names
+
+**Error handling with `failFast`:**
+```typescript
+// Default (failFast: true) - Stop on first error
+cml_batch_add_elements({ contextName: "...", aggregateName: "...", entities: [...] })
+
+// Collect all errors at once
+cml_batch_add_elements({
+  contextName: "...",
+  aggregateName: "...",
+  failFast: false,  // Validate everything, report all errors
+  entities: [...]
+})
+```
 
 ## Validation
 

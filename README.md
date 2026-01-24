@@ -94,14 +94,60 @@ Add to your Claude Desktop configuration (`claude_desktop_config.json`):
 | `cml_delete_aggregate` | Delete an aggregate |
 | `cml_add_entity` | Add entity to aggregate |
 | `cml_add_value_object` | Add value object |
+| `cml_add_identifier` | Add ID value object (DDD best practice) |
 | `cml_add_domain_event` | Add domain event |
 | `cml_add_command` | Add command |
 | `cml_add_service` | Add domain service |
+| `cml_batch_add_elements` | **Batch create** multiple domain objects in one call |
 | `cml_delete_entity` | Delete entity |
 | `cml_delete_value_object` | Delete value object |
 | `cml_delete_domain_event` | Delete domain event |
 | `cml_delete_command` | Delete command |
 | `cml_delete_service` | Delete service |
+
+##### Batch Creation (`cml_batch_add_elements`)
+
+Create multiple domain objects in a single call for improved efficiency:
+
+```json
+{
+  "contextName": "CustomerManagement",
+  "aggregateName": "Customer",
+  "identifiers": [
+    { "name": "CustomerId" }
+  ],
+  "entities": [
+    {
+      "name": "Customer",
+      "aggregateRoot": true,
+      "attributes": [
+        { "name": "id", "type": "- CustomerId", "key": true },
+        { "name": "email", "type": "String" }
+      ]
+    }
+  ],
+  "valueObjects": [
+    {
+      "name": "Address",
+      "attributes": [
+        { "name": "street", "type": "String" },
+        { "name": "city", "type": "String" }
+      ]
+    }
+  ],
+  "domainEvents": [
+    { "name": "CustomerRegistered", "attributes": [{ "name": "customerId", "type": "- CustomerId" }] }
+  ],
+  "commands": [
+    { "name": "RegisterCustomer", "attributes": [{ "name": "email", "type": "String" }] }
+  ]
+}
+```
+
+**Benefits:**
+- **Faster**: Single round-trip instead of 8+ individual calls
+- **Atomic validation**: All elements validated before any are created
+- **Error handling**: Use `failFast: false` to collect all errors at once
 
 #### Relationship Tools
 | Tool | Description |
