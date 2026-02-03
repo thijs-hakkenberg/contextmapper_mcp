@@ -1,5 +1,8 @@
 # Context Mapper MCP Server
 
+[![npm version](https://img.shields.io/npm/v/context-mapper-mcp.svg)](https://www.npmjs.com/package/context-mapper-mcp)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 An MCP (Model Context Protocol) server that enables AI assistants to work with Domain-Driven Design models using Context Mapper's CML (Context Mapping Language).
 
 ## Features
@@ -35,7 +38,26 @@ The server validates models in real-time to prevent common CML errors:
 
 ## Installation
 
+### Using npx (recommended)
+
+No installation required - run directly with npx:
+
 ```bash
+npx context-mapper-mcp
+```
+
+### Global installation
+
+```bash
+npm install -g context-mapper-mcp
+context-mapper-mcp
+```
+
+### From source
+
+```bash
+git clone https://github.com/thijs-hakkenberg/contextmapper_mcp.git
+cd contextmapper_mcp
 npm install
 npm run build
 ```
@@ -50,8 +72,20 @@ Add to your Claude Desktop configuration (`claude_desktop_config.json`):
 {
   "mcpServers": {
     "context-mapper": {
-      "command": "node",
-      "args": ["/path/to/context_mapper_mcp/dist/index.js"]
+      "command": "npx",
+      "args": ["context-mapper-mcp"]
+    }
+  }
+}
+```
+
+Or if installed globally:
+
+```json
+{
+  "mcpServers": {
+    "context-mapper": {
+      "command": "context-mapper-mcp"
     }
   }
 }
@@ -222,7 +256,7 @@ npm run build
 npm run dev
 
 # Run tests
-node test-run.mjs
+npm test
 ```
 
 ## Architecture
