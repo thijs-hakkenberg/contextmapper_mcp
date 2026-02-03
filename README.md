@@ -38,33 +38,13 @@ The server validates models in real-time to prevent common CML errors:
 
 ## Installation
 
-### Using npx (recommended)
-
-No installation required - run directly with npx:
+### Claude Code
 
 ```bash
-npx context-mapper-mcp
+claude mcp add context-mapper -- npx -y context-mapper-mcp
 ```
 
-### Global installation
-
-```bash
-npm install -g context-mapper-mcp
-context-mapper-mcp
-```
-
-### From source
-
-```bash
-git clone https://github.com/thijs-hakkenberg/contextmapper_mcp.git
-cd contextmapper_mcp
-npm install
-npm run build
-```
-
-## Usage
-
-### As MCP Server
+### Claude Desktop
 
 Add to your Claude Desktop configuration (`claude_desktop_config.json`):
 
@@ -73,19 +53,7 @@ Add to your Claude Desktop configuration (`claude_desktop_config.json`):
   "mcpServers": {
     "context-mapper": {
       "command": "npx",
-      "args": ["context-mapper-mcp"]
-    }
-  }
-}
-```
-
-Or if installed globally:
-
-```json
-{
-  "mcpServers": {
-    "context-mapper": {
-      "command": "context-mapper-mcp"
+      "args": ["-y", "context-mapper-mcp"]
     }
   }
 }
@@ -249,13 +217,10 @@ BoundedContext CustomerManagement {
 ## Development
 
 ```bash
-# Build
+git clone https://github.com/thijs-hakkenberg/contextmapper_mcp.git
+cd contextmapper_mcp
+npm install
 npm run build
-
-# Watch mode
-npm run dev
-
-# Run tests
 npm test
 ```
 
