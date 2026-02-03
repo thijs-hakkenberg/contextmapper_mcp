@@ -4,11 +4,15 @@
   "description": "MCP server for Domain-Driven Design with Context Mapper CML",
   "type": "module",
   "main": "dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "context-mapper-mcp": "./dist/index.js"
+  },
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "tsc --watch",
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
+    "test": "tsc --noEmit && node --test tests/*.test.js"
   },
   "keywords": [
     "mcp",
@@ -17,6 +21,22 @@
     "context-mapper",
     "cml"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thijs-hakkenberg/contextmapper_mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/thijs-hakkenberg/contextmapper_mcp/issues"
+  },
+  "homepage": "https://github.com/thijs-hakkenberg/contextmapper_mcp#readme",
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",

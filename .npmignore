@@ -1,0 +1,10 @@
+src/
+tests/
+*.test.ts
+*.spec.ts
+tsconfig.json
+.github/
+.gitignore
+jest.config.js
+docs/
+CLAUDE.md
