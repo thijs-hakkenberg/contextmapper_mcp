@@ -62,7 +62,27 @@ import {
   generateContextMapDiagramTool,
   generateAggregateDiagramTool,
   generateFullDiagramTool,
+  generateContextMapImageTool,
+  generateMDSLTool,
+  generateFromTemplateTool,
+  generateGlossaryTool,
+  generateJHipsterJDLTool,
+  generateFullReportTool,
 } from './tools/generation-tools.js';
+import {
+  cliStatusTool,
+  configureCLITool,
+  downloadCLITool,
+  listGeneratorsTool,
+  resetCLIConfigTool,
+} from './tools/cli-tools.js';
+
+// Import generator registry for initialization
+import { getGeneratorRegistry } from './generators/registry.js';
+import { createPlantUMLGenerators } from './generators/builtin/plantuml-adapter.js';
+import { createContextMapImageGenerator } from './generators/cli/context-map.js';
+import { createMDSLGenerator } from './generators/cli/mdsl.js';
+import { createGenericFreemarkerGenerator, createBundledTemplateGenerators } from './generators/cli/generic.js';
 
 // Tool definitions
 const tools: Tool[] = [
@@ -750,7 +770,7 @@ const tools: Tool[] = [
     },
   },
 
-  // Generation Tools
+  // PlantUML Generation Tools (builtin)
   {
     name: 'cml_generate_context_map_diagram',
     description: 'Generate a PlantUML context map diagram',
@@ -781,7 +801,149 @@ const tools: Tool[] = [
       properties: {},
     },
   },
+
+  // CLI-based Generation Tools
+  {
+    name: 'cml_generate_context_map_image',
+    description: 'Generate Context Map visualization (PNG/SVG) using Context Mapper CLI. Requires Java 17+ and CLI (auto-downloaded on first use).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        format: { type: 'string', enum: ['png', 'svg'], description: 'Output image format (default: png)' },
+        outputDir: { type: 'string', description: 'Output directory for generated files' },
+        width: { type: 'number', description: 'Image width in pixels' },
+        height: { type: 'number', description: 'Image height in pixels' },
+        fixWidth: { type: 'boolean', description: 'Fix the width of the image' },
+        fixHeight: { type: 'boolean', description: 'Fix the height of the image' },
+        timeout: { type: 'number', description: 'Timeout in milliseconds' },
+      },
+    },
+  },
+  {
+    name: 'cml_generate_mdsl',
+    description: 'Generate MDSL microservice contracts from Context Map upstream-downstream relationships. Requires Java 17+ and CLI.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        outputDir: { type: 'string', description: 'Output directory for generated files' },
+        timeout: { type: 'number', description: 'Timeout in milliseconds' },
+      },
+    },
+  },
+  {
+    name: 'cml_generate_from_template',
+    description: 'Generate output from a custom Freemarker template. Requires Java 17+ and CLI.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        templatePath: { type: 'string', description: 'Path to the Freemarker (.ftl) template file' },
+        outputDir: { type: 'string', description: 'Output directory for generated files' },
+        outputFileName: { type: 'string', description: 'Optional output file name' },
+        timeout: { type: 'number', description: 'Timeout in milliseconds' },
+      },
+      required: ['templatePath'],
+    },
+  },
+  {
+    name: 'cml_generate_glossary',
+    description: 'Generate ubiquitous language glossary (Markdown) from domain model using bundled template. Requires Java 17+ and CLI.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        outputDir: { type: 'string', description: 'Output directory for generated files' },
+        timeout: { type: 'number', description: 'Timeout in milliseconds' },
+      },
+    },
+  },
+  {
+    name: 'cml_generate_jhipster_jdl',
+    description: 'Generate JHipster JDL from domain model using bundled template. Requires Java 17+ and CLI.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        type: { type: 'string', enum: ['microservices', 'monolith'], description: 'Architecture type (default: microservices)' },
+        outputDir: { type: 'string', description: 'Output directory for generated files' },
+        timeout: { type: 'number', description: 'Timeout in milliseconds' },
+      },
+    },
+  },
+  {
+    name: 'cml_generate_full_report',
+    description: 'Generate comprehensive domain documentation (Markdown) using bundled template. Requires Java 17+ and CLI.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        outputDir: { type: 'string', description: 'Output directory for generated files' },
+        timeout: { type: 'number', description: 'Timeout in milliseconds' },
+      },
+    },
+  },
+
+  // CLI Configuration Tools
+  {
+    name: 'cml_cli_status',
+    description: 'Check Context Mapper CLI and Java availability status',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+  {
+    name: 'cml_configure_cli',
+    description: 'Configure CLI settings (paths, Java home, output directory, timeout)',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        cliDir: { type: 'string', description: 'Directory where CLI is installed' },
+        version: { type: 'string', description: 'CLI version to use' },
+        javaHome: { type: 'string', description: 'Path to Java home (or empty to auto-detect)' },
+        outputDir: { type: 'string', description: 'Default output directory for generated files' },
+        timeout: { type: 'number', description: 'Default timeout in milliseconds (minimum 1000)' },
+      },
+    },
+  },
+  {
+    name: 'cml_download_cli',
+    description: 'Download and install the Context Mapper CLI from Maven Central',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        version: { type: 'string', description: 'CLI version to download (default: 6.12.0)' },
+        force: { type: 'boolean', description: 'Force reinstall even if already installed' },
+      },
+    },
+  },
+  {
+    name: 'cml_list_generators',
+    description: 'List all available generators and their availability status',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
 ];
+
+/**
+ * Initialize the generator registry with all generators
+ */
+function initializeGeneratorRegistry(): void {
+  const registry = getGeneratorRegistry();
+
+  // Register builtin PlantUML generators
+  for (const generator of createPlantUMLGenerators()) {
+    registry.register(generator);
+  }
+
+  // Register CLI-based generators
+  registry.register(createContextMapImageGenerator());
+  registry.register(createMDSLGenerator());
+  registry.register(createGenericFreemarkerGenerator());
+
+  // Register bundled template generators
+  for (const generator of createBundledTemplateGenerators()) {
+    registry.register(generator);
+  }
+}
 
 // Create server instance
 const server = new Server(
@@ -921,7 +1083,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         result = getRelationship(args as any);
         break;
 
-      // Generation Tools
+      // PlantUML Generation Tools
       case 'cml_generate_context_map_diagram':
         result = generateContextMapDiagramTool(args as any);
         break;
@@ -930,6 +1092,40 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         break;
       case 'cml_generate_full_diagram':
         result = generateFullDiagramTool();
+        break;
+
+      // CLI-based Generation Tools
+      case 'cml_generate_context_map_image':
+        result = await generateContextMapImageTool(args as any);
+        break;
+      case 'cml_generate_mdsl':
+        result = await generateMDSLTool(args as any);
+        break;
+      case 'cml_generate_from_template':
+        result = await generateFromTemplateTool(args as any);
+        break;
+      case 'cml_generate_glossary':
+        result = await generateGlossaryTool(args as any);
+        break;
+      case 'cml_generate_jhipster_jdl':
+        result = await generateJHipsterJDLTool(args as any);
+        break;
+      case 'cml_generate_full_report':
+        result = await generateFullReportTool(args as any);
+        break;
+
+      // CLI Configuration Tools
+      case 'cml_cli_status':
+        result = await cliStatusTool();
+        break;
+      case 'cml_configure_cli':
+        result = configureCLITool(args as any);
+        break;
+      case 'cml_download_cli':
+        result = await downloadCLITool(args as any);
+        break;
+      case 'cml_list_generators':
+        result = await listGeneratorsTool();
         break;
 
       default:
@@ -957,6 +1153,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 // Start the server
 async function main() {
+  // Initialize generator registry
+  initializeGeneratorRegistry();
+
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error('Context Mapper MCP Server running on stdio');
