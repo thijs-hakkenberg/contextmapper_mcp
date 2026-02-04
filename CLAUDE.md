@@ -236,6 +236,86 @@ if (!result.success) {
 }
 ```
 
+## Artifact Generation (CLI-based)
+
+The server integrates with the Context Mapper CLI for advanced artifact generation. The CLI is **auto-downloaded from Maven Central on first use** (requires Java 17+).
+
+### Check CLI Status
+
+```typescript
+cml_cli_status()  // Check Java and CLI availability
+```
+
+### Generate Visualizations
+
+```typescript
+// Generate Context Map as PNG or SVG
+cml_generate_context_map_image({ format: "png", outputDir: "./output" })
+
+// Generate PlantUML (no CLI required)
+cml_generate_context_map_diagram({ includeAggregates: true })
+cml_generate_aggregate_diagram({ contextName: "OrderManagement", aggregateName: "Order" })
+cml_generate_full_diagram()
+```
+
+### Generate Documentation
+
+```typescript
+// Ubiquitous language glossary (Markdown)
+cml_generate_glossary({ outputDir: "./docs" })
+
+// Comprehensive domain report (Markdown)
+cml_generate_full_report({ outputDir: "./docs" })
+```
+
+### Generate Code Artifacts
+
+```typescript
+// MDSL microservice contracts (requires upstream-downstream relationships)
+cml_generate_mdsl({ outputDir: "./contracts" })
+
+// JHipster JDL
+cml_generate_jhipster_jdl({ type: "microservices", outputDir: "./jdl" })
+cml_generate_jhipster_jdl({ type: "monolith", outputDir: "./jdl" })
+
+// Custom Freemarker template
+cml_generate_from_template({ templatePath: "./my-template.ftl", outputDir: "./output" })
+```
+
+### CLI Configuration
+
+```typescript
+// Configure CLI settings
+cml_configure_cli({
+  outputDir: "./generated",
+  timeout: 300000,  // 5 minutes
+  javaHome: "/path/to/java"  // Optional, auto-detected by default
+})
+
+// Manually download/update CLI
+cml_download_cli({ version: "6.12.0", force: true })
+
+// List all available generators
+cml_list_generators()
+```
+
+### Bundled Templates
+
+The following templates are included:
+- `glossary` - Ubiquitous language glossary (Markdown)
+- `jhipster-microservices` - JHipster JDL for microservices
+- `jhipster-monolith` - JHipster JDL for monolith
+- `full-report` - Comprehensive domain documentation
+
 ## Documentation
 
 See `docs/MODELING_GUIDE.md` for comprehensive documentation with examples.
+
+## Release Process
+
+To publish a new version to npm:
+
+1. Update version: `npm version <major|minor|patch>`
+2. Push with tags: `git push origin main --tags`
+
+The GitHub Actions pipeline automatically publishes to npm when a tag is pushed.
