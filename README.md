@@ -41,7 +41,7 @@ The server validates models in real-time to prevent common CML errors:
 ### Claude Code
 
 ```bash
-claude mcp add context-mapper -- npx -y context-mapper-mcp
+claude mcp add context-mapper -- npx -y context-mapper-mcp@latest
 ```
 
 ### Claude Desktop
@@ -53,7 +53,7 @@ Add to your Claude Desktop configuration (`claude_desktop_config.json`):
   "mcpServers": {
     "context-mapper": {
       "command": "npx",
-      "args": ["-y", "context-mapper-mcp"]
+      "args": ["-y", "context-mapper-mcp@latest"]
     }
   }
 }
