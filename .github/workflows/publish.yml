@@ -31,4 +31,4 @@ jobs:
         run: npm test
 
       - name: Publish to npm
-        run: npm publish --loglevel verbose  # OIDC trusted publishing, provenance is automatic
+        run: npm publish  # OIDC trusted publishing, provenance is automatic
