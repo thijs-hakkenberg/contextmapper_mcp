@@ -127,6 +127,13 @@ export function updateBoundedContext(params: UpdateBoundedContextParams): Update
       }
     }
 
+    // Update canvas collaborator references
+    for (const other of model.boundedContexts) {
+      for (const c of [...(other.canvas?.inboundCommunication ?? []), ...(other.canvas?.outboundCommunication ?? [])]) {
+        if (c.collaborator === oldName) c.collaborator = newName;
+      }
+    }
+
     bc.name = newName;
   }
 

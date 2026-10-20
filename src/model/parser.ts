@@ -32,6 +32,8 @@ import type {
 const WhiteSpace = createToken({ name: 'WhiteSpace', pattern: /\s+/, group: Lexer.SKIPPED });
 const LineComment = createToken({ name: 'LineComment', pattern: /\/\/[^\n\r]*/, group: Lexer.SKIPPED });
 const BlockComment = createToken({ name: 'BlockComment', pattern: /\/\*[\s\S]*?\*\//, group: Lexer.SKIPPED });
+// '^' escapes a keyword used as an identifier (e.g. ^name), as written by the CML writer
+const KeywordEscape = createToken({ name: 'KeywordEscape', pattern: /\^/, group: Lexer.SKIPPED });
 
 // Identifier must be defined first for longer_alt references
 const Identifier = createToken({ name: 'Identifier', pattern: /[a-zA-Z_][a-zA-Z0-9_]*/ });
@@ -114,6 +116,7 @@ const allTokens = [
   WhiteSpace,
   LineComment,
   BlockComment,
+  KeywordEscape,
   // Multi-char operators first
   DoubleArrow,
   UpstreamDownstreamArrow,

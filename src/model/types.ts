@@ -96,6 +96,49 @@ export interface Module extends CMLElement {
   aggregates: Aggregate[];
 }
 
+// Bounded Context Canvas (v5, https://github.com/ddd-crew/bounded-context-canvas)
+export type CanvasDomain = 'core' | 'supporting' | 'generic' | 'other';
+export type CanvasBusinessModel = 'revenue' | 'engagement' | 'compliance' | 'cost reduction';
+export type CanvasEvolution = 'genesis' | 'custom built' | 'product' | 'commodity';
+export type CanvasCollaboratorType = 'bounded context' | 'frontend' | 'user interaction' | 'external system' | 'other';
+export type CanvasMessageType = 'command' | 'query' | 'event';
+
+export interface CanvasMessage {
+  type: CanvasMessageType;
+  name: string;
+}
+
+export interface CanvasCollaboration {
+  collaborator: string;
+  type?: CanvasCollaboratorType;
+  relationship?: string;
+  messages?: CanvasMessage[];
+}
+
+export interface CanvasTerm {
+  term: string;
+  definition?: string;
+}
+
+export interface CanvasStrategicClassification {
+  domain?: CanvasDomain[];
+  businessModel?: CanvasBusinessModel[];
+  evolution?: CanvasEvolution[];
+}
+
+export interface BoundedContextCanvas {
+  purpose?: string;
+  strategicClassification?: CanvasStrategicClassification;
+  domainRoles?: string[];
+  inboundCommunication?: CanvasCollaboration[];
+  outboundCommunication?: CanvasCollaboration[];
+  ubiquitousLanguage?: CanvasTerm[];
+  businessDecisions?: string[];
+  assumptions?: string[];
+  verificationMetrics?: string[];
+  openQuestions?: string[];
+}
+
 // Bounded Context
 export interface BoundedContext extends CMLElement {
   domainVisionStatement?: string;
@@ -104,6 +147,8 @@ export interface BoundedContext extends CMLElement {
   knowledgeLevel?: KnowledgeLevel;
   aggregates: Aggregate[];
   modules: Module[];
+  /** Bounded Context Canvas data that CML cannot express (persisted in the .canvas.yaml sidecar) */
+  canvas?: BoundedContextCanvas;
 }
 
 // Upstream/Downstream roles in asymmetric relationships

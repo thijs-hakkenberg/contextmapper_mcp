@@ -128,7 +128,7 @@ class CMLWriter {
   private writeRelationship(rel: ContextRelationship): void {
     if (rel.type === 'Partnership' || rel.type === 'SharedKernel') {
       const symRel = rel as SymmetricRelationship;
-      this.writeLine(`${symRel.participant1} [${symRel.type}] ${symRel.participant2}`);
+      this.writeLine(`${symRel.participant1} ${symRel.type} ${symRel.participant2}`);
     } else if (rel.type === 'UpstreamDownstream') {
       const udRel = rel as UpstreamDownstreamRelationship;
 

@@ -12,6 +12,8 @@ An MCP (Model Context Protocol) server that enables AI assistants to work with D
 - **Work with aggregates** - Define entities, value objects, domain events, commands, and services
 - **Context map relationships** - Define and manage relationships between bounded contexts (Partnership, SharedKernel, Upstream-Downstream with patterns like OHS, PL, ACL, CF)
 - **Generate PlantUML diagrams** - Visualize context maps and aggregate structures
+- **Bounded Context Canvas** - Create [DDD Crew Bounded Context Canvases](https://github.com/ddd-crew/bounded-context-canvas) (v5), derived from the model and enriched with canvas-only sections
+- **HTML artifacts** - Interactive, self-contained HTML context map linked to an HTML canvas per bounded context (works offline, no Java needed)
 - **Real-time validation** - Catch errors at creation time, not at save time
 - **ID Value Objects** - Dedicated tool for creating DDD-compliant identifier types
 
@@ -172,6 +174,24 @@ Supported relationship types:
 | `cml_generate_context_map_diagram` | Generate PlantUML context map |
 | `cml_generate_aggregate_diagram` | Generate aggregate class diagram |
 | `cml_generate_full_diagram` | Generate full model diagram |
+| `cml_generate_context_map_html` | Generate an interactive HTML context map plus a linked canvas page per context |
+
+#### Bounded Context Canvas Tools
+| Tool | Description |
+|------|-------------|
+| `cml_set_bounded_context_canvas` | Set canvas sections CML cannot express (strategic classification, domain roles, business decisions, assumptions, verification metrics, open questions, extra collaborators and terms) |
+| `cml_get_bounded_context_canvas` | Get a context's canvas in the DDD Crew canonical format (JSON or YAML) |
+| `cml_generate_bounded_context_canvas` | Write canvases as HTML pages or as DDD Crew YAML for one or all contexts |
+
+Canvas sections are filled from the model where possible:
+
+| Canvas section | Derived from |
+|----------------|--------------|
+| Purpose | `domainVisionStatement` |
+| Inbound / outbound communication | Context map relationships: downstreams receive the domain events of the upstream's exposed aggregates (all aggregates when none are exposed); commands are attributed to downstreams only when aggregates are exposed explicitly. Relationship patterns (OHS, PL, ACL, CF, Partnership, Shared Kernel) become the relationship label. |
+| Ubiquitous language | Aggregates, entities and value objects (identifier-only value objects are skipped), with their documentation as definition |
+
+Explicitly set entries take precedence over derived ones with the same collaborator or term. Canvas data is saved by `cml_save_model` to a sidecar file next to the model (`model.cml` → `model.canvas.yaml`) in the [DDD Crew YAML format](https://github.com/ddd-crew/bounded-context-canvas/tree/main/tools/yaml-version), one YAML document per bounded context, and loaded again by `cml_load_model`.
 
 ## Example CML File
 
@@ -230,7 +250,7 @@ npm test
 - **Writer**: Serializes model back to CML format
 - **Validation**: Checks model consistency and semantic rules
 - **Tools**: MCP tool implementations for all operations
-- **Generators**: PlantUML diagram generators
+- **Generators**: PlantUML diagram generators, HTML context map and Bounded Context Canvas generators, Context Mapper CLI integration
 
 ## License
 

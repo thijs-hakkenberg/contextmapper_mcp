@@ -70,6 +70,12 @@ import {
   generateFullReportTool,
 } from './tools/generation-tools.js';
 import {
+  setBoundedContextCanvas,
+  getBoundedContextCanvas,
+  generateBoundedContextCanvasTool,
+  generateContextMapHtmlTool,
+} from './tools/canvas-tools.js';
+import {
   cliStatusTool,
   configureCLITool,
   downloadCLITool,
@@ -80,6 +86,7 @@ import {
 // Import generator registry for initialization
 import { getGeneratorRegistry } from './generators/registry.js';
 import { createPlantUMLGenerators } from './generators/builtin/plantuml-adapter.js';
+import { createHTMLGenerators } from './generators/builtin/html-adapter.js';
 import { createContextMapImageGenerator } from './generators/cli/context-map.js';
 import { createMDSLGenerator } from './generators/cli/mdsl.js';
 import { createGenericFreemarkerGenerator, createBundledTemplateGenerators } from './generators/cli/generic.js';
@@ -879,6 +886,129 @@ const tools: Tool[] = [
     },
   },
 
+  // Bounded Context Canvas Tools
+  {
+    name: 'cml_set_bounded_context_canvas',
+    description: 'Set Bounded Context Canvas (DDD Crew v5) sections that CML cannot express. Each section passed replaces the stored one; null or [] clears it. Purpose, communication and ubiquitous language are also derived from the model (vision statement, relationships, commands/events, entities), so only set them to add or override. Saved to <model>.canvas.yaml by cml_save_model.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        contextName: { type: 'string', description: 'Name of the bounded context' },
+        replace: { type: 'boolean', description: 'Discard all stored canvas data before applying (default: false)' },
+        purpose: { type: 'string', description: 'Purpose from a business perspective (defaults to the domain vision statement)' },
+        strategicClassification: {
+          type: 'object',
+          properties: {
+            domain: { oneOf: [{ type: 'string', enum: ['core', 'supporting', 'generic', 'other'] }, { type: 'array', items: { type: 'string', enum: ['core', 'supporting', 'generic', 'other'] } }] },
+            businessModel: { oneOf: [{ type: 'string', enum: ['revenue', 'engagement', 'compliance', 'cost reduction'] }, { type: 'array', items: { type: 'string', enum: ['revenue', 'engagement', 'compliance', 'cost reduction'] } }] },
+            evolution: { oneOf: [{ type: 'string', enum: ['genesis', 'custom built', 'product', 'commodity'] }, { type: 'array', items: { type: 'string', enum: ['genesis', 'custom built', 'product', 'commodity'] } }] },
+          },
+        },
+        domainRoles: { type: 'array', items: { type: 'string' }, description: 'e.g. draft context, execution context, analysis context, gateway context' },
+        inboundCommunication: {
+          type: 'array',
+          description: 'Collaborations initiated by others; entries override derived ones for the same collaborator',
+          items: {
+            type: 'object',
+            properties: {
+              collaborator: { type: 'string', description: 'Name of the collaborating context, frontend or system' },
+              type: { type: 'string', enum: ['bounded context', 'frontend', 'user interaction', 'external system', 'other'] },
+              relationship: { type: 'string', description: 'e.g. customer/supplier, conformist, anticorruption layer, open host service, published language, shared kernel, partnership' },
+              messages: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    type: { type: 'string', enum: ['command', 'query', 'event'] },
+                    name: { type: 'string' },
+                  },
+                  required: ['type', 'name'],
+                },
+              },
+            },
+            required: ['collaborator'],
+          },
+        },
+        outboundCommunication: {
+          type: 'array',
+          description: 'Collaborations initiated by this context; entries override derived ones for the same collaborator',
+          items: {
+            type: 'object',
+            properties: {
+              collaborator: { type: 'string', description: 'Name of the collaborating context, frontend or system' },
+              type: { type: 'string', enum: ['bounded context', 'frontend', 'user interaction', 'external system', 'other'] },
+              relationship: { type: 'string', description: 'e.g. customer/supplier, conformist, anticorruption layer, open host service, published language, shared kernel, partnership' },
+              messages: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    type: { type: 'string', enum: ['command', 'query', 'event'] },
+                    name: { type: 'string' },
+                  },
+                  required: ['type', 'name'],
+                },
+              },
+            },
+            required: ['collaborator'],
+          },
+        },
+        ubiquitousLanguage: {
+          type: 'array',
+          description: 'Domain terms with optional definitions; explicit definitions override derived terms of the same name',
+          items: {
+            type: 'object',
+            properties: { term: { type: 'string' }, definition: { type: 'string' } },
+            required: ['term'],
+          },
+        },
+        businessDecisions: { type: 'array', items: { type: 'string' }, description: 'Key business rules, policies and decisions' },
+        assumptions: { type: 'array', items: { type: 'string' }, description: 'Unverified assumptions behind this design' },
+        verificationMetrics: { type: 'array', items: { type: 'string' }, description: 'Metrics to (in)validate the boundaries' },
+        openQuestions: { type: 'array', items: { type: 'string' }, description: 'Questions no one could answer yet' },
+      },
+      required: ['contextName'],
+    },
+  },
+  {
+    name: 'cml_get_bounded_context_canvas',
+    description: 'Get the Bounded Context Canvas of a context in the DDD Crew canonical format, merging stored canvas data with what is derived from the model',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        contextName: { type: 'string', description: 'Name of the bounded context' },
+        format: { type: 'string', enum: ['json', 'yaml'], description: 'Result format (default: json)' },
+        deriveFromModel: { type: 'boolean', description: 'Include sections derived from the model (default: true); false returns only stored data' },
+      },
+      required: ['contextName'],
+    },
+  },
+  {
+    name: 'cml_generate_bounded_context_canvas',
+    description: 'Generate Bounded Context Canvas files (self-contained HTML, or DDD Crew canonical YAML for their SVG renderer) for one or all bounded contexts. No CLI required.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        contextName: { type: 'string', description: 'Bounded context to generate (default: all)' },
+        format: { type: 'string', enum: ['html', 'yaml'], description: 'Output format (default: html)' },
+        outputDir: { type: 'string', description: 'Output directory for generated files' },
+        deriveFromModel: { type: 'boolean', description: 'Fill sections from the model (default: true)' },
+      },
+    },
+  },
+  {
+    name: 'cml_generate_context_map_html',
+    description: 'Generate an interactive, self-contained HTML context map (context-map.html) and, by default, a linked Bounded Context Canvas page per context in canvases/. Works offline; no CLI required.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        outputDir: { type: 'string', description: 'Output directory for generated files' },
+        includeCanvases: { type: 'boolean', description: 'Also generate linked canvas pages (default: true)' },
+        deriveFromModel: { type: 'boolean', description: 'Fill canvas sections from the model (default: true)' },
+      },
+    },
+  },
+
   // CLI Configuration Tools
   {
     name: 'cml_cli_status',
@@ -931,6 +1061,11 @@ function initializeGeneratorRegistry(): void {
 
   // Register builtin PlantUML generators
   for (const generator of createPlantUMLGenerators()) {
+    registry.register(generator);
+  }
+
+  // Register builtin HTML generators
+  for (const generator of createHTMLGenerators()) {
     registry.register(generator);
   }
 
@@ -1112,6 +1247,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         break;
       case 'cml_generate_full_report':
         result = await generateFullReportTool(args as any);
+        break;
+
+      // Bounded Context Canvas Tools
+      case 'cml_set_bounded_context_canvas':
+        result = setBoundedContextCanvas(args as any);
+        break;
+      case 'cml_get_bounded_context_canvas':
+        result = getBoundedContextCanvas(args as any);
+        break;
+      case 'cml_generate_bounded_context_canvas':
+        result = await generateBoundedContextCanvasTool(args as any);
+        break;
+      case 'cml_generate_context_map_html':
+        result = await generateContextMapHtmlTool(args as any);
         break;
 
       // CLI Configuration Tools
