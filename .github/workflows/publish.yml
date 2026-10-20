@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 jobs:
   publish:
@@ -30,4 +31,4 @@ jobs:
         run: npm test
 
       - name: Publish to npm
-        run: npm publish --access public  # OIDC trusted publishing, provenance is automatic
+        run: npm publish --access public --loglevel verbose  # OIDC trusted publishing, provenance is automatic
