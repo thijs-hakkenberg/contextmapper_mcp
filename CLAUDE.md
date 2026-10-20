@@ -258,6 +258,41 @@ cml_generate_aggregate_diagram({ contextName: "OrderManagement", aggregateName: 
 cml_generate_full_diagram()
 ```
 
+### Bounded Context Canvas and HTML Artifacts (no CLI required)
+
+The [Bounded Context Canvas](https://github.com/ddd-crew/bounded-context-canvas) (v5) is filled from the model
+(purpose from `domainVisionStatement`, communication from relationships and commands/events, ubiquitous
+language from aggregates/entities/value objects). Add what CML cannot express with `cml_set_bounded_context_canvas`:
+
+```typescript
+cml_set_bounded_context_canvas({
+  contextName: "OrderManagement",
+  strategicClassification: { domain: "core", businessModel: ["revenue"], evolution: "custom built" },
+  domainRoles: ["execution context"],
+  inboundCommunication: [
+    { collaborator: "Web Shop", type: "frontend", messages: [{ type: "command", name: "PlaceOrder" }] }
+  ],
+  ubiquitousLanguage: [{ term: "Order", definition: "A customer's request to buy products" }],
+  businessDecisions: ["Orders over 1000 EUR need a credit check"],
+  assumptions: ["One currency per order"],
+  verificationMetrics: ["Changes that also require changes in Checkout"],
+  openQuestions: ["Who owns returns?"]
+})
+
+cml_get_bounded_context_canvas({ contextName: "OrderManagement", format: "yaml" })
+
+// Interactive HTML context map + one linked canvas page per context
+cml_generate_context_map_html({ outputDir: "./docs/architecture" })
+
+// Canvases only, as HTML or DDD Crew YAML
+cml_generate_bounded_context_canvas({ format: "html", outputDir: "./docs/canvases" })
+```
+
+- Each section you pass replaces the stored one; `null` or `[]` clears it. `replace: true` discards all stored canvas data first.
+- Valid values: domain `core|supporting|generic|other`; businessModel `revenue|engagement|compliance|cost reduction`; evolution `genesis|custom built|product|commodity`; collaborator type `bounded context|frontend|user interaction|external system|other`; message type `command|query|event`.
+- Canvas data is saved to `<model>.canvas.yaml` next to the `.cml` file by `cml_save_model`, and loaded by `cml_load_model`.
+- To get commands into derived communication, set `exposedAggregates` on the upstream/downstream relationship.
+
 ### Generate Documentation
 
 ```typescript

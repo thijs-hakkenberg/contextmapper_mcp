@@ -9,6 +9,9 @@ import type { CMLModel, ValidationResult } from '../model/types.js';
 import { parseCML } from '../model/parser.js';
 import { serializeCML } from '../model/writer.js';
 import { validateModel } from '../model/validation.js';
+import { getCanvasSidecarPath, parseCanvasSidecar, applyCanvasSidecar, serializeCanvasSidecar } from '../model/canvas.js';
+
+const SIDECAR_HEADER = '# Bounded Context Canvas data for ';
 
 // In-memory model store (for MCP session)
 let currentModel: CMLModel | null = null;
@@ -73,7 +76,9 @@ export interface LoadModelResult {
     boundedContextsCount: number;
     hasContextMap: boolean;
     filePath: string;
+    canvasFile?: string;
   };
+  warnings?: string[];
   parseErrors?: Array<{
     message: string;
     line?: number;
@@ -101,6 +106,18 @@ export async function loadModel(params: LoadModelParams): Promise<LoadModelResul
     model.filePath = resolvedPath;
     model.name = path.basename(resolvedPath, '.cml');
 
+    // Load Bounded Context Canvas data from the sidecar, if present
+    const warnings: string[] = [];
+    const canvasPath = getCanvasSidecarPath(resolvedPath);
+    let canvasFile: string | undefined;
+    const canvasText = await fs.readFile(canvasPath, 'utf-8').catch(() => null);
+    if (canvasText !== null) {
+      const { canvases, errors } = parseCanvasSidecar(canvasText);
+      warnings.push(...errors.map(e => `${path.basename(canvasPath)}: ${e}`));
+      warnings.push(...applyCanvasSidecar(model, canvases));
+      canvasFile = canvasPath;
+    }
+
     currentModel = model;
 
     return {
@@ -110,7 +127,9 @@ export async function loadModel(params: LoadModelParams): Promise<LoadModelResul
         boundedContextsCount: model.boundedContexts.length,
         hasContextMap: !!model.contextMap,
         filePath: resolvedPath,
+        canvasFile,
       },
+      warnings: warnings.length > 0 ? warnings : undefined,
     };
   } catch (err) {
     return {
@@ -128,6 +147,7 @@ export interface SaveModelParams {
 export interface SaveModelResult {
   success: boolean;
   filePath?: string;
+  canvasFile?: string;
   error?: string;
 }
 
@@ -161,11 +181,24 @@ export async function saveModel(params: SaveModelParams): Promise<SaveModelResul
 
     await fs.writeFile(filePath, content, 'utf-8');
 
+    // Persist canvas data CML cannot hold; drop a sidecar we wrote earlier once no canvas data is left
+    const canvasPath = getCanvasSidecarPath(filePath);
+    const canvasContent = serializeCanvasSidecar(currentModel);
+    if (canvasContent !== null) {
+      await fs.writeFile(canvasPath, canvasContent, 'utf-8');
+    } else {
+      const existing = await fs.readFile(canvasPath, 'utf-8').catch(() => null);
+      if (existing?.startsWith(SIDECAR_HEADER)) {
+        await fs.unlink(canvasPath);
+      }
+    }
+
     currentModel.filePath = filePath;
 
     return {
       success: true,
       filePath,
+      canvasFile: canvasContent !== null ? canvasPath : undefined,
     };
   } catch (err) {
     return {
